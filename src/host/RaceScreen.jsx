@@ -6,6 +6,8 @@ import { racePositions, racers } from "../lib/standings.js";
 import { splitScreenGrid, splitScreenViews } from "../split-screen.js";
 import { Avatar, Pill } from "../components/primitives.jsx";
 import { StartSignal } from "../components/StartSignal.jsx";
+import { faultIcon } from "../kart-fault-icons.js";
+import { THOUGHT_DELAY_MS } from "../kart-thought-bubble-model.js";
 
 const RaceView = lazy(() => import("../RaceView.jsx"));
 
@@ -89,11 +91,12 @@ function FeedHud({ player, position, count, elapsedMs, trackLength }) {
   return (
     <div className="tv-feed" style={{ "--seat": player.identity.color }}>
       <div className="tv-feed__driver">
-        <Avatar identity={player.identity} size={16} border={2} fontSize={8}>{player.badge}</Avatar>
+        <Avatar identity={player.identity} size={30} border={2} fontSize={15}>{player.badge}</Avatar>
         <div className="tv-feed__driver-text">
           <span className="tv-feed__name">{player.name}</span>
           <span className="tv-feed__kart">{kartNameFor(player)}</span>
         </div>
+        {elapsedMs >= THOUGHT_DELAY_MS && <DriverFaults player={player} />}
       </div>
       <div className="tv-feed__position">
         <span className="tv-feed__position-value">{positionLabel}</span>
@@ -112,5 +115,34 @@ function FeedHud({ player, position, count, elapsedMs, trackLength }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function DriverFaults({ player }) {
+  const { car } = player;
+  const ids = [...new Set(car.defectIds ?? car.defects?.map((defect) => defect.id) ?? [])];
+  if (ids.length === 0) {
+    return (
+      <span className="tv-feed__faults tv-feed__faults--fixed" role="img" aria-label={`${player.name}: no remaining faults`} title="Fully fixed">
+        <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" fill="#22854f" />
+          <path d="m9 16 5 5 9-10" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <ul className="tv-feed__faults" aria-label={`${player.name}: remaining faults`}>
+      {ids.map((id) => {
+        const icon = faultIcon(id, car);
+        if (!icon) return null;
+        const label = icon.label.join(" ").toLowerCase();
+        return (
+          <li key={id} title={label}>
+            <img src={icon.src} alt={label} width="40" height="40" draggable={false} />
+          </li>
+        );
+      })}
+    </ul>
   );
 }

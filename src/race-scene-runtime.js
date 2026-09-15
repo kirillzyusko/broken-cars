@@ -1,5 +1,6 @@
 import * as pc from "playcanvas";
 import { createTireMarks } from "./tire-marks.js";
+import { createKartThoughtBubbles } from "./kart-thought-bubbles.js";
 import { createStartLights } from "./start-lights.js";
 import { raceStartSignal } from "../shared/race-start.js";
 import { createKartAudio } from "./kart-audio.js";
@@ -46,6 +47,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   const main = createCameraState(camera, view, currentPlayerId);
   const scene = {
     audio: createKartAudio(), audioActive: true, tireMarks: createTireMarks(app),
+    thoughtBubbles: createKartThoughtBubbles(app),
     reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     app, camera, cameraFrame, main, split: null, copyShader: null,
     carStates: new Map(), obstacleStates: new Map(), materials: [],
@@ -62,6 +64,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     destroy() {
       scene.audio.dispose();
       scene.tireMarks.destroy();
+      scene.thoughtBubbles.destroy();
       scene.startLights?.destroy();
       destroySplitViews(scene);
       cameraFrame.destroy();
@@ -139,6 +142,7 @@ export function syncCars(scene, cars) {
     state.car = car;
     state.visual.applyDefects(car.defectIds);
   }
+  scene.thoughtBubbles.sync(scene.carStates);
 }
 
 function createMaterial(scene, color) {
@@ -232,6 +236,7 @@ function updateScene(scene, dt) {
   const start = scene.startClock;
   const now = start ? start.serverNow + performance.now() - start.receivedAt : 0;
   const signal = raceStartSignal(start?.startsAt, now);
+  scene.thoughtBubbles.update(Number.isFinite(start?.startsAt) ? now - start.startsAt : null, scene.reducedMotion);
   scene.startLights?.update(signal);
   scene.audio.startSignal(start?.id, signal);
   updateCameras(scene, dt);

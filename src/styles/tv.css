@@ -383,17 +383,35 @@
   left: 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
   max-width: 56%;
-  padding: 2px 9px 2px 3px;
+  padding: 5px 10px 5px 6px;
   border: 2px solid var(--ink);
   border-radius: 99px;
   background: var(--cream);
   box-shadow: 0 2px 0 var(--ink);
 }
 .tv-feed__driver-text { display: flex; flex-direction: column; min-width: 0; }
-.tv-feed__name { overflow: hidden; font-size: 11px; font-weight: 800; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-.tv-feed__kart { overflow: hidden; font-family: var(--mono); font-size: 8px; color: var(--slate-soft); text-overflow: ellipsis; white-space: nowrap; }
+.tv-feed__name { overflow: hidden; font-size: 18px; font-weight: 800; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.tv-feed__kart { overflow: hidden; font-family: var(--mono); font-size: 10px; color: var(--slate-soft); text-overflow: ellipsis; white-space: nowrap; }
+.tv-feed__faults {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  max-width: 126px;
+  min-height: 40px;
+  margin: 0;
+  padding: 0 0 0 8px;
+  border-left: 1px solid var(--slate-soft);
+  list-style: none;
+  box-sizing: content-box;
+  pointer-events: auto;
+}
+.tv-feed__faults li { display: flex; }
+.tv-feed__faults img { display: block; width: 40px; height: 40px; object-fit: contain; }
+.tv-feed__faults--fixed { padding-right: 4px; }
 .tv-feed__position {
   position: absolute;
   right: 14px;
