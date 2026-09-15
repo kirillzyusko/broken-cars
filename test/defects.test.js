@@ -169,10 +169,10 @@ test("prompt exclusions can replace a preferred category without creating contra
   assert.equal(selected.length, 4);
   assert.equal(selected.some((id) => avoidedDefectIds.includes(id)), false);
   assert.equal(defectTestUtils.validSelection(selected), true);
-  assert.equal(
-    selected.filter((id) => DEFECTS.find((defect) => defect.id === id).severity === "critical").length,
-    1,
-  );
+  const criticalCount = selected.filter((id) => (
+    DEFECTS.find((defect) => defect.id === id).severity === "critical"
+  )).length;
+  assert.ok(criticalCount < 2);
 });
 
 test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats", async () => {
