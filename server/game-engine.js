@@ -531,6 +531,7 @@ function publicPlayer(player, viewerPlayerId) {
     hasPrompt: Boolean(player.prompt),
     hasTuningPrompt: Boolean(player.tuningPrompt),
     lastRepair: player.lastRepairId ? DEFECT_MAP.get(player.lastRepairId) : null,
+    lastRepairs: (player.lastRepairIds ?? []).map((id) => DEFECT_MAP.get(id)),
     car: player.car
       ? {
           ...publicCar,
@@ -622,6 +623,7 @@ export class GameEngine {
         prompt: "",
         tuningPrompt: "",
         lastRepairId: null,
+        lastRepairIds: [],
         controls: { ...EMPTY_CONTROLS },
         car: null,
       };
@@ -732,6 +734,7 @@ export class GameEngine {
       player.controls = { ...EMPTY_CONTROLS };
       player.tuningPrompt = "";
       player.lastRepairId = null;
+      player.lastRepairIds = [];
     });
 
     room.roundNumber = 1;
@@ -754,6 +757,7 @@ export class GameEngine {
     for (const player of racers) {
       player.controls = { ...EMPTY_CONTROLS };
       player.lastRepairId = null;
+      player.lastRepairIds = [];
       resetCarForRace(player.car);
     }
 
@@ -781,6 +785,7 @@ export class GameEngine {
     for (const player of racers) {
       player.tuningPrompt = "";
       player.lastRepairId = null;
+      player.lastRepairIds = [];
     }
     return room;
   }
@@ -796,7 +801,7 @@ export class GameEngine {
       throw new Error("Your car has no defects left to repair.");
     }
     if (typeof prompt !== "string" || !prompt.trim()) {
-      throw new Error("Describe one specific defect you noticed.");
+      throw new Error("Describe the specific drawbacks you noticed.");
     }
     player.tuningPrompt = prompt.trim().slice(0, 160);
     return player;
@@ -823,17 +828,16 @@ export class GameEngine {
     }
 
     for (const player of racers) {
-      const repairedId = repairs[player.id];
-      player.lastRepairId = !isGenericRepairRequest(player.tuningPrompt)
-        && typeof repairedId === "string"
-        && player.car.defectIds.includes(repairedId)
-        ? repairedId
-        : null;
-      if (player.lastRepairId) {
-        player.car.defectIds = player.car.defectIds.filter(
-          (id) => id !== player.lastRepairId,
-        );
-      }
+      const suggested = Array.isArray(repairs[player.id])
+        ? repairs[player.id]
+        : typeof repairs[player.id] === "string" ? [repairs[player.id]] : [];
+      const current = new Set(player.car.defectIds);
+      player.lastRepairIds = isGenericRepairRequest(player.tuningPrompt)
+        ? []
+        : [...new Set(suggested.filter((id) => current.has(id)))];
+      player.lastRepairId = player.lastRepairIds[0] ?? null;
+      const repaired = new Set(player.lastRepairIds);
+      player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));
       player.controls = { ...EMPTY_CONTROLS };
       resetCarForRace(player.car);
     }

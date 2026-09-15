@@ -503,7 +503,7 @@ test("room snapshots keep car prompts private from the host and other players", 
   assert.equal(racingHostSnapshot.players[1].car.name, "Driver 2's car");
 });
 
-test("each tuning round repairs at most one specifically reported defect", async () => {
+test("each tuning round permanently repairs every specifically reported current defect", async () => {
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
@@ -531,19 +531,24 @@ test("each tuning round repairs at most one specifically reported defect", async
   engine.submitTuningPrompt(
     room.id,
     "player-1",
-    "The steering is reversed",
+    "The steering is reversed and it slides like ice",
     2_001,
   );
   await engine.startNextRace(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": "reversed_steering" }),
+    async () => ({ "player-1": ["reversed_steering", "no_grip"] }),
     2_011,
   );
 
   const player = room.players.get("player-1");
-  assert.deepEqual(player.car.defectIds, ["no_brakes", "no_grip"]);
+  assert.deepEqual(player.car.defectIds, ["no_brakes"]);
   assert.equal(player.lastRepairId, "reversed_steering");
+  assert.deepEqual(player.lastRepairIds, ["reversed_steering", "no_grip"]);
+  assert.deepEqual(
+    engine.serialize(room, { viewerPlayerId: "player-1" }).players[0].lastRepairs.map((item) => item.id),
+    ["reversed_steering", "no_grip"],
+  );
   assert.equal(player.car.distance, 0);
   assert.equal(player.car.speed, 0);
   assert.equal(room.roundNumber, 2);
@@ -579,7 +584,7 @@ test("generic requests cannot repair defects even if a selector suggests one", a
   await engine.startNextRace(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": "no_brakes" }),
+    async () => ({ "player-1": ["no_brakes", "no_grip"] }),
     2_011,
   );
 
@@ -589,6 +594,7 @@ test("generic requests cannot repair defects even if a selector suggests one", a
     ["no_brakes", "reversed_steering", "no_grip"],
   );
   assert.equal(player.lastRepairId, null);
+  assert.deepEqual(player.lastRepairIds, []);
 });
 
 test("host snapshots never reveal private tuning prompts", async () => {

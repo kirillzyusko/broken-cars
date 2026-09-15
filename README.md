@@ -22,7 +22,7 @@ ENABLE_BROKEN_PARTS=true
 
 The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed. Car prompts are sent to OpenAI only when `LLM_PROVIDER=openai` is enabled. Explicit requirements are treated as hard constraints, so a player asking for round wheels cannot receive square or missing wheels. The server also minimizes repeated defects across players in the same room. If the API fails, the build stays open and the host sees an error instead of silently assigning potentially conflicting defects.
 
-Tuning reports use the same selector. A concrete symptom such as `it slides like ice` can repair `no_grip`, but a generic request such as `make the car fully working` repairs nothing. The server enforces a maximum of one removed defect per car per tuning round independently of the model response.
+Tuning reports use the same selector. A concrete symptom such as `it slides like ice` can repair `no_grip`, and one message can repair several current defects when it clearly identifies each of them. A generic request such as `make the car fully working` repairs nothing. The server validates every returned ID against the car's current defect set, removes duplicates, and never reintroduces repaired drawbacks in later rounds.
 
 ## Client
 
@@ -126,7 +126,6 @@ The Blender step reads the saved scene without changing it. It writes temporary 
 ## Background music
 
 “Choose Your Racer” loops on the home screen and during waiting, building, tuning, and the countdown. The host switches to “Retro Roundabout” when racing begins and keeps it through the results. Both tracks play at 35% volume. Browsers may require a click or keypress before playback starts. The Music button saves the mute setting. Phone controllers and map inspection pages stay silent. `public/audio/choose-your-racer.mp3` and `public/audio/retro-roundabout.mp3` are compressed copies of the user-supplied WAV files.
-
 
 ### Kart sounds
 

@@ -108,7 +108,7 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
   );
 });
 
-test("generic repair requests are rejected and concrete reports fix one defect", async () => {
+test("generic repair requests are rejected and concrete reports fix every named current defect", async () => {
   const players = [
     {
       id: "generic",
@@ -117,21 +117,21 @@ test("generic repair requests are rejected and concrete reports fix one defect",
     },
     {
       id: "specific",
-      tuningPrompt: "It slips like ice",
+      tuningPrompt: "It slips like ice and the brakes do not work",
       defectIds: ["no_brakes", "no_grip", "reversed_steering"],
     },
   ];
   const repairs = await selectRepairs(players, { provider: "local" });
 
-  assert.equal(repairs.generic, null);
-  assert.equal(repairs.specific, "no_grip");
+  assert.deepEqual(repairs.generic, []);
+  assert.deepEqual(repairs.specific, ["no_brakes", "no_grip"]);
   assert.equal(
     defectTestUtils.isGenericRepairRequest("Car should be fully working"),
     true,
   );
 });
 
-test("OpenAI repair selection is constrained to one current, concrete defect", async () => {
+test("OpenAI repair selection keeps every current, concrete defect and rejects generic requests", async () => {
   const players = [
     {
       id: "generic",
@@ -140,7 +140,7 @@ test("OpenAI repair selection is constrained to one current, concrete defect", a
     },
     {
       id: "specific",
-      tuningPrompt: "The steering goes the opposite way",
+      tuningPrompt: "The steering goes the opposite way and the brakes do not work",
       defectIds: ["no_brakes", "no_grip", "reversed_steering"],
     },
   ];
@@ -156,7 +156,7 @@ test("OpenAI repair selection is constrained to one current, concrete defect", a
           output_text: JSON.stringify({
             assignments: [
               { playerId: "generic", repairedDefectIds: ["no_brakes"] },
-              { playerId: "specific", repairedDefectIds: ["reversed_steering"] },
+              { playerId: "specific", repairedDefectIds: ["reversed_steering", "no_brakes"] },
             ],
           }),
         }),
@@ -164,12 +164,11 @@ test("OpenAI repair selection is constrained to one current, concrete defect", a
     },
   });
 
-  assert.equal(repairs.generic, null);
-  assert.equal(repairs.specific, "reversed_steering");
-  assert.equal(
+  assert.deepEqual(repairs.generic, []);
+  assert.deepEqual(repairs.specific, ["reversed_steering", "no_brakes"]);
+  assert.ok(
     requestBody.text.format.schema.properties.assignments.items.properties
-      .repairedDefectIds.maxItems,
-    1,
+      .repairedDefectIds.maxItems > 1,
   );
 });
 

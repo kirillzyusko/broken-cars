@@ -3,7 +3,7 @@ import { SHOUT_GRACE_MS } from "../config.js";
 import { displayRound, isReversing, kph, ordinal } from "../lib/format.js";
 import { StartSignal } from "../components/StartSignal.jsx";
 import { detectShouts, shoutFor } from "../lib/shouts.js";
-import { positionOf, racers } from "../lib/standings.js";
+import { arcadeMode, positionOf, racers } from "../lib/standings.js";
 import { Avatar } from "../components/primitives.jsx";
 
 const EMPTY_CONTROLS = Object.freeze({
@@ -77,11 +77,14 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
   const [controls, setControls] = useState(EMPTY_CONTROLS);
   const controlsRef = useRef(EMPTY_CONTROLS);
   const [bubbles, setBubbles] = useState([]);
+  const introRef = useRef(false);
   const shoutedRef = useRef(new Set());
   const timersRef = useRef(new Map());
   const firstInputRef = useRef(null);
   const finishedRef = useRef(false);
   const collisionRef = useRef(null);
+  const arcade = arcadeMode(room);
+  const repairedCount = me.lastRepairs?.length ?? (me.lastRepair ? 1 : 0);
 
   const pushBubble = useCallback((bubble) => {
     setBubbles((current) => [
@@ -89,6 +92,24 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
       { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, ...bubble },
     ].slice(-MAX_BUBBLES));
   }, []);
+
+  // Opening line: the result of the last pit stop, or a fresh-kart remark.
+  useEffect(() => {
+    if (introRef.current) return;
+    introRef.current = true;
+    if (arcade || room.roundNumber <= 1) {
+      pushBubble({ text: room.roundNumber <= 1 ? "Fresh kart. Send it!" : "Same kart, new sprint. Go!", tone: "remark" });
+    } else if (repairedCount > 0) {
+      pushBubble({
+        text: repairedCount === 1
+          ? "The garage fixed that drawback. Go!"
+          : `The garage fixed ${repairedCount} drawbacks. Go!`,
+        tone: "remark",
+      });
+    } else {
+      pushBubble({ text: "No changes this round. Go!", tone: "remark" });
+    }
+  }, [arcade, pushBubble, repairedCount, room.roundNumber]);
 
   // Collisions are public, not secret parts, so they are called out at once,
   // but a long scrape along the scenery should not flood the bubble zone.
