@@ -414,7 +414,6 @@ async function selectWithOpenAI(
   const payload = JSON.parse(extractOutputText(await response.json()));
   const playerIds = new Set(players.map((player) => player.id));
   const byPlayer = new Map();
-  const assignments = Array.isArray(payload.assignments) ? payload.assignments : [];
   for (const assignment of assignments) {
     if (!playerIds.has(assignment?.playerId) || byPlayer.has(assignment.playerId)) continue;
     byPlayer.set(assignment.playerId, normalizeSuggestion(assignment));
