@@ -1,3 +1,4 @@
+import { unlockKartAudio } from "../kart-audio-context.js";
 import { useEffect } from "react";
 import BackgroundMusic from "../BackgroundMusic.jsx";
 import { useGameSocket } from "../use-game-socket.js";
@@ -58,6 +59,14 @@ function HostKeyMissing() {
 }
 
 export function HostScreen({ roomId, onPhaseChange }) {
+  useEffect(() => {
+    window.addEventListener("click", unlockKartAudio);
+    window.addEventListener("keydown", unlockKartAudio);
+    return () => {
+      window.removeEventListener("click", unlockKartAudio);
+      window.removeEventListener("keydown", unlockKartAudio);
+    };
+  }, []);
   const hostToken = sessionStorage.getItem(`broken-cars:host:${roomId}`) ?? "";
   const storedJoinUrl = sessionStorage.getItem(`broken-cars:join:${roomId}`);
   const joinUrl = storedJoinUrl ?? `${window.location.origin}/play/${roomId}`;

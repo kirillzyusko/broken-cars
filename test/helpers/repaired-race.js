@@ -11,6 +11,5 @@ export async function startRepairedRace(engine, room, now = 1_002) {
   );
   for (const player of room.players.values()) {
     player.car.defectIds = [];
-    player.car._queuedDefectIds = [];
   }
 }

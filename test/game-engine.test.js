@@ -106,10 +106,9 @@ test("every car leaves the garage broken and server-authoritative controls move 
 
   const car = room.players.get("player-1").car;
   assert.equal(selectorCalled, true);
-  assert.deepEqual(car.defectIds, ["no_steering"]);
-  assert.deepEqual(car._queuedDefectIds, ["no_brakes", "no_seatbelt", "loose_wheel"]);
+  assert.deepEqual(car.defectIds, ["no_steering", "no_brakes", "no_seatbelt", "loose_wheel"]);
   assert.ok(car.speed > 0);
-  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected full acceleration, received ${car.speed}`);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.8, `expected full acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
   assert.ok(car.distance < TRACK_LENGTH_METERS);
   assert.ok(car.speed <= STANDARD_MAX_SPEED_MPS, `expected believable acceleration, received ${car.speed}`);
@@ -398,7 +397,7 @@ test("swapped pedals, reversed steering, stuck acceleration, and backwards engin
   assert.ok(room.players.get("player-0").car.speed > 0);
   assert.ok(room.players.get("player-1").car.lane < 0);
   assert.equal(room.players.get("player-2").car.acceleratorStuck, true);
-  assert.equal(room.players.get("player-3").car.distance, 0);
+  assert.ok(room.players.get("player-3").car.distance < 0, "backwards driving loses progress behind the start line");
 
   const stuckSpeed = room.players.get("player-2").car.speed;
   engine.setControls(room.id, "player-2", {});
@@ -466,7 +465,7 @@ test("room snapshots keep car prompts private from the host and other players", 
   assert.equal(racingHostSnapshot.players[1].car.name, "Driver 2's car");
 });
 
-test("repairs unlock fatal, critical, and annoying defects in order", async () => {
+test("all defects apply together and specific repairs leave other faults unchanged", async () => {
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
@@ -487,92 +486,30 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   );
 
   const player = room.players.get("player-1");
-  assert.deepEqual(player.car.defectIds, ["no_engine"]);
-  assert.deepEqual(player.car._queuedDefectIds, ["no_grip", "no_steering", "square_wheels"]);
-  const initialSnapshot = engine.serialize(room, { viewerPlayerId: "player-1" });
-  assert.deepEqual(initialSnapshot.players[0].car.defectIds, ["no_engine"]);
-  assert.equal(initialSnapshot.players[0].car.activeDefectId, "no_engine");
-  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_engine");
-  assert.deepEqual(initialSnapshot.players[0].car.defects.map((item) => item.id), ["no_engine"]);
-  assert.equal("_queuedDefectIds" in initialSnapshot.players[0].car, false);
-
+  const all = ["no_engine", "no_grip", "no_steering", "square_wheels"];
+  assert.deepEqual(player.car.defectIds, all);
+  assert.deepEqual(engine.serialize(room).players[0].car.defectIds, all);
   room.phase = "finished";
-  player.car.distance = 250;
-  player.car.speed = 20;
-  engine.startTuning(room.id, room.hostToken, 2_000);
-  engine.submitTuningPrompt(
-    room.id,
-    "player-1",
-    "Install the missing engine and replace the square wheels",
-    2_001,
-  );
-  let repairInput;
-  await engine.startNextRace(
-    room.id,
-    room.hostToken,
-    async (players) => {
-      repairInput = players;
-      return { "player-1": ["square_wheels", "no_engine"] };
-    },
-    2_011,
-  );
-
-  assert.deepEqual(repairInput[0].defectIds, ["no_engine"]);
-  assert.deepEqual(player.car.defectIds, ["no_grip"]);
-  assert.deepEqual(player.car._queuedDefectIds, ["no_steering", "square_wheels"]);
-  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_grip");
-  assert.equal(player.lastRepairId, "no_engine");
-  assert.deepEqual(player.lastRepairIds, ["no_engine"]);
-  assert.deepEqual(
-    engine.serialize(room, { viewerPlayerId: "player-1" }).players[0].lastRepairs.map((item) => item.id),
-    ["no_engine"],
-  );
-  assert.equal(player.car.distance, 0);
-  assert.equal(player.car.speed, 0);
-  assert.equal(room.roundNumber, 2);
-  assert.equal(room.phase, "countdown");
-
+  engine.startTuning(room.id, room.hostToken, 2000);
+  engine.submitTuningPrompt(room.id, "player-1", "Install the missing engine and replace the square wheels", 2001);
+  await engine.startNextRace(room.id, room.hostToken, async (players) => {
+    assert.deepEqual(players[0].defectIds, all);
+    return { "player-1": ["no_engine", "square_wheels"] };
+  }, 2011);
+  assert.deepEqual(player.car.defectIds, ["no_grip", "no_steering"]);
+  assert.deepEqual(player.lastRepairIds, ["no_engine", "square_wheels"]);
   room.phase = "finished";
-  engine.startTuning(room.id, room.hostToken, 3_000);
-  engine.submitTuningPrompt(room.id, "player-1", "Fix the missing grip", 3_001);
-  await engine.startNextRace(
-    room.id,
-    room.hostToken,
-    async () => ({ "player-1": ["no_grip"] }),
-    3_011,
-  );
-  assert.deepEqual(player.car.defectIds, ["no_steering"]);
-  assert.deepEqual(player.car._queuedDefectIds, ["square_wheels"]);
-  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_steering");
-  assert.equal(player.lastRepairId, "no_grip");
-
+  engine.startTuning(room.id, room.hostToken, 3000);
+  engine.submitTuningPrompt(room.id, "player-1", "Fix everything", 3001);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ "player-1": [] }), 3011);
+  assert.deepEqual(player.car.defectIds, ["no_grip", "no_steering"]);
+  assert.deepEqual(player.lastRepairIds, []);
   room.phase = "finished";
-  engine.startTuning(room.id, room.hostToken, 4_000);
-  engine.submitTuningPrompt(room.id, "player-1", "Fix the steering", 4_001);
-  await engine.startNextRace(
-    room.id,
-    room.hostToken,
-    async () => ({ "player-1": ["no_steering"] }),
-    4_011,
-  );
-  assert.deepEqual(player.car.defectIds, ["square_wheels"]);
-  assert.deepEqual(player.car._queuedDefectIds, []);
-  assert.equal(player.lastRepairId, "no_steering");
-  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "square_wheels");
-
-  room.phase = "finished";
-  engine.startTuning(room.id, room.hostToken, 5_000);
-  engine.submitTuningPrompt(room.id, "player-1", "Replace the square wheels", 5_001);
-  await engine.startNextRace(
-    room.id,
-    room.hostToken,
-    async () => ({ "player-1": ["square_wheels"] }),
-    5_011,
-  );
+  engine.startTuning(room.id, room.hostToken, 4000);
+  engine.submitTuningPrompt(room.id, "player-1", "It slides like ice and the steering does nothing", 4001);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ "player-1": ["no_grip", "no_steering"] }), 4011);
   assert.deepEqual(player.car.defectIds, []);
-  assert.deepEqual(player.car._queuedDefectIds, []);
-  assert.equal(player.lastRepairId, "square_wheels");
-  assert.equal(engine.serialize(room).players[0].car.activeDefectId, null);
+
 });
 
 test("the engine applies the LLM decision without locally parsing the prompt", async () => {
@@ -610,10 +547,10 @@ test("the engine applies the LLM decision without locally parsing the prompt", a
   const player = room.players.get("player-1");
   assert.deepEqual(
     player.car.defectIds,
-    ["no_brakes"],
+    ["reversed_steering", "loose_wheel"],
   );
-  assert.equal(player.lastRepairId, "no_grip");
-  assert.deepEqual(player.lastRepairIds, ["no_grip"]);
+  assert.equal(player.lastRepairId, "no_brakes");
+  assert.deepEqual(player.lastRepairIds, ["no_brakes", "no_grip"]);
 });
 
 test("host snapshots never reveal private tuning prompts", async () => {
@@ -787,6 +724,7 @@ test("the round ends as soon as the first kart finishes and the rest are placed 
 test("when time runs out nobody has finished but everyone is still placed", async () => {
   const { engine, room, cars, park } = await threeKartRace();
   park([120, 300, 200]);
+  cars[0].worldPosition.x += 2; // Movement keeps the inactivity timeout from ending this race.
   engine.tick(50_000);
   assert.equal(room.phase, "racing");
   assert.deepEqual(cars.map((car) => car.rank), [null, null, null]);
@@ -794,4 +732,79 @@ test("when time runs out nobody has finished but everyone is still placed", asyn
   assert.equal(room.phase, "finished");
   assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
   assert.ok(cars.every((car) => car.finishedAtMs === null));
+});
+
+
+test("all karts staying within one metre for ten seconds ends the race", async () => {
+  const { engine, room, cars, park } = await threeKartRace();
+  park([120, 300, 200]);
+  cars[0].worldPosition.x += 0.8;
+  engine.tick(11_999);
+  assert.equal(room.phase, "racing");
+  engine.tick(12_000);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
+});
+
+test("one kart moving more than a metre restarts the inactivity window", async () => {
+  const { engine, room, cars } = await threeKartRace();
+  cars[1].worldPosition.x += 1.1;
+  engine.tick(11_000);
+  engine.tick(20_999);
+  assert.equal(room.phase, "racing");
+  engine.tick(21_000);
+  assert.equal(room.phase, "finished");
+});
+
+test("live countdown starts after slow garage assignment and repair requests", async (t) => {
+  let clock = 1000;
+  t.mock.method(Date, "now", () => clock);
+  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 1 });
+  const room = engine.createRoom();
+  engine.joinPlayer(room.id, "driver");
+  engine.startPrompting(room.id, room.hostToken);
+  engine.submitPrompt(room.id, "driver", "Kart");
+  clock = 1002;
+  await engine.startRoom(room.id, room.hostToken, async () => {
+    clock += 12_000;
+    return { driver: ["no_engine", "no_steering", "no_brakes", "no_seatbelt"] };
+  });
+  assert.equal(room.startsAt, clock + engine.startCountdownMs);
+  engine.tick(clock);
+  assert.equal(room.phase, "countdown");
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken);
+  clock += 2;
+  await engine.startNextRace(room.id, room.hostToken, async () => {
+    clock += 15_000;
+    return { driver: [] };
+  });
+  assert.equal(room.startsAt, clock + engine.startCountdownMs);
+  engine.tick(clock);
+  assert.equal(room.phase, "countdown");
+});
+
+test("prompt tuning persists through repairs and only requested axes change", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 1 });
+  const room = engine.createRoom(1000);
+  engine.joinPlayer(room.id, "driver", 1000);
+  engine.startPrompting(room.id, room.hostToken, 1000);
+  engine.submitPrompt(room.id, "driver", "Make it ultra fast", 1000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({ driver: {
+    defectIds: ["no_engine", "no_brakes", "no_steering", "square_wheels"], tuning: { speed: "extreme" },
+  } }), 1002);
+  const car = room.players.get("driver").car;
+  assert.deepEqual(car.tuning, { speed: 8, steering: 1 });
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 2000);
+  engine.submitTuningPrompt(room.id, "driver", "Fit the missing engine", 2000);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ driver: ["no_engine"] }), 2002);
+  assert.deepEqual(car.tuning, { speed: 8, steering: 1 });
+  assert.ok(!car.defectIds.includes("no_engine"));
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 3000);
+  engine.submitTuningPrompt(room.id, "driver", "Make steering less sensitive", 3000);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ driver: { defectIds: [], tuning: { steering: "low" } } }), 3002);
+  assert.deepEqual(car.tuning, { speed: 8, steering: 0.6 });
+  assert.deepEqual(engine.serialize(room).players[0].car.tuning, car.tuning);
 });

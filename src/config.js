@@ -1,6 +1,6 @@
 export const GAME_NAME = "KAAAAART";
 export const WIFI_NAME = "STARLINK";
-export const TRACK_NAME = "500m Sprint";
+export const TRACK_NAME = "Corsica GP";
 export const PROMPT_MAX_LENGTH = 120;
 export const URGENT_THRESHOLD_MS = 10_000;
 export const SEAT_COUNT = 4;

@@ -28,12 +28,12 @@ test("BrokenCarsGame exposes the complete multi-round integration surface", asyn
 
   room.phase = "finished";
   game.startTuning(room.id, room.hostToken, 2_000);
-  game.submitRepair(room.id, "player", "The engine is missing", 2_001);
+  game.submitRepair(room.id, "player", "The engine is missing and the brakes do not work", 2_001);
   await game.startNextRace(room.id, room.hostToken, 2_011);
 
   const state = game.getState(room, { now: 2_011, viewerPlayerId: "player" });
   assert.equal(state.roundNumber, 2);
-  assert.deepEqual(state.players[0].car.defectIds, ["no_grip"]);
+  assert.deepEqual(state.players[0].car.defectIds, ["no_grip", "no_steering"]);
   assert.equal(state.players[0].lastRepair.id, "no_engine");
-  assert.deepEqual(state.players[0].lastRepairs.map((item) => item.id), ["no_engine"]);
+  assert.deepEqual(state.players[0].lastRepairs.map((item) => item.id), ["no_engine", "no_brakes"]);
 });

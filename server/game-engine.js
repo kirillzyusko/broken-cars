@@ -1,3 +1,4 @@
+import { applyKartTuning } from "../shared/kart-tuning.js";
 import { stepKart, DRIVING_STEP } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress, circuitTransform } from "../shared/track-world.js";
 import { getDrivingWorld } from "./driving-world.js";
@@ -86,13 +87,11 @@ function createCar(player, index, defectIds) {
     (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(left)?.severity) ?? Number.MAX_SAFE_INTEGER)
     - (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(right)?.severity) ?? Number.MAX_SAFE_INTEGER)
   ));
-  const [activeDefectId, ...queuedDefectIds] = orderedDefectIds;
   return {
     ...driving,
     name: player.prompt,
     color: carColor(index),
-    defectIds: activeDefectId ? [activeDefectId] : [],
-    _queuedDefectIds: queuedDefectIds,
+    defectIds: orderedDefectIds,
     distance: 0,
     speed: 0,
     velocityX: 0,
@@ -104,10 +103,10 @@ function createCar(player, index, defectIds) {
     massKg: CAR_MASS_KG,
     heat: 0,
     acceleratorStuck: false,
-    oneWayTurn: activeDefectId === "one_way_steering"
+    oneWayTurn: orderedDefectIds.includes("one_way_steering")
       ? (index % 2 === 0 ? "left" : "right")
       : null,
-    enginePowerIssue: activeDefectId === "bad_engine_power"
+    enginePowerIssue: orderedDefectIds.includes("bad_engine_power")
       ? (index % 2 === 0 ? "weak" : "overpowered")
       : null,
     collisionCount: 0,
@@ -117,19 +116,6 @@ function createCar(player, index, defectIds) {
     finishedAtMs: null,
     rank: null,
   };
-}
-
-function promoteNextDefect(car) {
-  if (car.defectIds.length > 0) return;
-  const nextDefectId = car._queuedDefectIds.shift();
-  if (!nextDefectId) return;
-  car.defectIds = [nextDefectId];
-  if (nextDefectId === "one_way_steering") {
-    car.oneWayTurn = car.spawnIndex % 2 === 0 ? "left" : "right";
-  }
-  if (nextDefectId === "bad_engine_power") {
-    car.enginePowerIssue = car.spawnIndex % 2 === 0 ? "weak" : "overpowered";
-  }
 }
 
 function resetCarForRace(car) {
@@ -545,7 +531,6 @@ function publicPlayer(player, viewerPlayerId) {
   const {
     _lastCollisionKey: _ignoredCollisionKey,
     _collisionCooldownUntilMs: _ignoredCollisionCooldown,
-    _queuedDefectIds: _ignoredQueuedDefectIds,
     ...publicCar
   } = player.car ?? {};
   const snapshot = {
@@ -561,7 +546,6 @@ function publicPlayer(player, viewerPlayerId) {
     car: player.car
       ? {
           ...publicCar,
-          activeDefectId: player.car.defectIds[0] ?? null,
           name: isOwner ? player.car.name : `${player.name}'s car`,
           defects: player.car.defectIds.map((id) => publicDefect(player.car, id)),
         }
@@ -727,7 +711,9 @@ export class GameEngine {
     return player;
   }
 
-  async startRoom(roomId, hostToken, selector, now = Date.now()) {
+  async startRoom(roomId, hostToken, selector, now) {
+    const liveClock = now === undefined;
+    now ??= Date.now();
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "prompting") throw new Error("The car build is not active.");
@@ -746,11 +732,13 @@ export class GameEngine {
     }
 
     racers.forEach((player, index) => {
-      const defectIds = assignments[player.id];
+      const assignment = assignments[player.id];
+      const defectIds = Array.isArray(assignment) ? assignment : assignment?.defectIds;
       if (!Array.isArray(defectIds) || defectIds.length !== 4) {
         throw new Error(`Exactly four broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
+      player.car.tuning = applyKartTuning({}, assignment?.tuning);
       player.controls = { ...EMPTY_CONTROLS };
       player.tuningPrompt = "";
       player.lastRepairId = null;
@@ -759,7 +747,8 @@ export class GameEngine {
 
     room.roundNumber = 1;
     room.finishers = [];
-    room.startsAt = now + this.startCountdownMs;
+    // Garage requests can outlast the countdown; start it only when cars are ready.
+    room.startsAt = (liveClock ? Date.now() : now) + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
     room.drivingAccumulator = 0;
@@ -793,9 +782,6 @@ export class GameEngine {
     if (room.phase !== "tuning" || now >= room.tuningDeadline) {
       throw new Error("The tuning window is closed.");
     }
-    if (player.car.defectIds.length === 0) {
-      throw new Error("Your car has no defects left to repair.");
-    }
     if (typeof prompt !== "string" || !prompt.trim()) {
       throw new Error("Describe the specific drawbacks you noticed.");
     }
@@ -803,7 +789,9 @@ export class GameEngine {
     return player;
   }
 
-  async startNextRace(roomId, hostToken, repairSelector, now = Date.now()) {
+  async startNextRace(roomId, hostToken, repairSelector, now) {
+    const liveClock = now === undefined;
+    now ??= Date.now();
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "tuning") throw new Error("The tuning round is not active.");
@@ -816,6 +804,7 @@ export class GameEngine {
       repairs = await repairSelector(racers.map((player) => ({
         id: player.id,
         tuningPrompt: player.tuningPrompt,
+        tuning: player.car.tuning,
         defectIds: [...player.car.defectIds],
       })));
     } catch (error) {
@@ -824,22 +813,23 @@ export class GameEngine {
     }
 
     for (const player of racers) {
-      const suggested = Array.isArray(repairs[player.id])
-        ? repairs[player.id]
-        : typeof repairs[player.id] === "string" ? [repairs[player.id]] : [];
+      const decision = repairs[player.id];
+      const suggested = Array.isArray(decision) ? decision
+        : typeof decision === "string" ? [decision] : decision?.defectIds ?? [];
+      player.car.tuning = applyKartTuning(player.car.tuning, decision?.tuning);
       const current = new Set(player.car.defectIds);
       player.lastRepairIds = [...new Set(suggested.filter((id) => current.has(id)))];
       player.lastRepairId = player.lastRepairIds[0] ?? null;
       const repaired = new Set(player.lastRepairIds);
       player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));
-      promoteNextDefect(player.car);
       player.controls = { ...EMPTY_CONTROLS };
       resetCarForRace(player.car);
     }
 
     room.roundNumber += 1;
     room.finishers = [];
-    room.startsAt = now + this.startCountdownMs;
+    // Garage requests can outlast the countdown; start it only when cars are ready.
+    room.startsAt = (liveClock ? Date.now() : now) + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
     room.drivingAccumulator = 0;
@@ -878,6 +868,9 @@ export class GameEngine {
       }
       if (room.phase === "countdown" && now >= room.startsAt) {
         room.phase = "racing";
+        room.stationarySince = now;
+        room.stationaryPositions = new Map([...room.players.values()].filter((player) => player.car)
+          .map((player) => [player.id, { ...player.car.worldPosition }]));
         room.lastTickAt = now;
         changedRooms.push(room.id);
         continue;
@@ -920,10 +913,21 @@ export class GameEngine {
         room.finishers.push(player.id);
       }
 
-      // The round ends with the first finisher or when time runs out. Everyone
+      const moved = !room.stationaryPositions || racers.some((player) => {
+        const anchor = room.stationaryPositions.get(player.id);
+        const position = player.car.worldPosition;
+        return !anchor || Math.hypot(position.x - anchor.x, position.z - anchor.z) > 1;
+      });
+      if (moved) {
+        room.stationarySince = now;
+        room.stationaryPositions = new Map(racers.map((player) => [player.id, { ...player.car.worldPosition }]));
+      }
+      const allStuck = racers.length > 0 && now - room.stationarySince >= 10_000;
+
+      // End on a finisher, time limit, or ten seconds with all karts stuck. Everyone
       // still on track is placed by how far they got, so the standings and the
       // points separate them instead of sharing one DNF.
-      if (room.finishers.length > 0 || now >= room.raceEndsAt) {
+      if (room.finishers.length > 0 || now >= room.raceEndsAt || allStuck) {
         room.phase = "finished";
         const onTrack = racers
           .filter((player) => player.car.finishedAtMs === null)
