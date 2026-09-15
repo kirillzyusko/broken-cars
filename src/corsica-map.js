@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { warmMapFoliage } from "./map-foliage-color.js";
 import track from "./corsica-track.json" with { type: "json" };
 
 let physicsReady;
@@ -35,6 +36,7 @@ export async function loadCorsicaMap(app, isCancelled) {
   if (isCancelled()) return null;
   const visual = visualAsset.resource.instantiateRenderEntity({ castShadows: true });
   visual.name = "Corsica GP / scenery";
+  warmMapFoliage(visual);
   app.root.addChild(visual);
   for (const render of visual.findComponents("render")) {
     const bounds = track.instanceBounds[render.entity.name];

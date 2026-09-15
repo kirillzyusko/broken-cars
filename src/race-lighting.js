@@ -18,8 +18,8 @@ export function setupContactShadows(app, camera) {
 }
 
 export function setupRaceLighting(app) {
-  // Warm daylight and neutral fill keep foliage green rather than mint-blue.
-  app.scene.ambientLight = new pc.Color(0.82, 0.81, 0.72);
+  // Neutral daylight preserves white signs and paint; foliage warmth is material-specific.
+  app.scene.ambientLight = new pc.Color(0.80, 0.80, 0.80);
   app.scene.exposure = 1.15;
   // Keep the island clear nearby and fade the distant ocean into the sky.
   // loadRaceSkybox replaces this fallback with the panorama's horizon color.
@@ -31,7 +31,7 @@ export function setupRaceLighting(app) {
   const sun = new pc.Entity("Corsica / summer sun");
   sun.addComponent("light", {
     type: "directional",
-    color: new pc.Color(1, 0.965, 0.80),
+    color: new pc.Color(1, 1, 1),
     intensity: 2.15,
     castShadows: true,
     shadowType: pc.SHADOW_PCF5,
@@ -47,17 +47,17 @@ export function setupRaceLighting(app) {
   const skyFill = new pc.Entity("Corsica / neutral sky fill");
   skyFill.addComponent("light", {
     type: "directional",
-    color: new pc.Color(0.96, 0.97, 0.88),
+    color: new pc.Color(0.96, 0.96, 0.96),
     intensity: 0.48,
     castShadows: false,
   });
   skyFill.setEulerAngles(58, 145, 0);
   app.root.addChild(skyFill);
 
-  const bounce = new pc.Entity("Corsica / warm ground bounce");
+  const bounce = new pc.Entity("Corsica / soft ground bounce");
   bounce.addComponent("light", {
     type: "directional",
-    color: new pc.Color(1, 0.86, 0.68),
+    color: new pc.Color(0.95, 0.95, 0.95),
     intensity: 0.14,
     castShadows: false,
   });
