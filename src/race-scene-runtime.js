@@ -3,6 +3,7 @@ import { createStartLights } from "./start-lights.js";
 import { raceStartSignal } from "../shared/race-start.js";
 import { createKartAudio } from "./kart-audio.js";
 import { updateKartCamera } from "./kart-camera.js";
+import { frameOffsetYaw, updateHomeCamera } from "./home-camera.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
 import { createRaceWater } from "./race-water.js";
@@ -44,6 +45,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   const main = createCameraState(camera, view, currentPlayerId);
   const scene = {
     audio: createKartAudio(), audioActive: true,
+    reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     app, camera, cameraFrame, main, split: null, copyShader: null,
     carStates: new Map(), obstacleStates: new Map(), materials: [],
     map: null, skybox: null, water: null, kartAssets: null,
@@ -235,6 +237,20 @@ function placeCamera(scene, state, dt, raycast) {
   const leader = [...scene.carStates.values()].sort((a, b) => b.distance - a.distance)[0];
   // A split-screen feed belongs to one racer; the direct camera falls back to the leader.
   const followed = driver ?? (state.exclusive ? null : leader);
+  if (state.mode === "cinematic") {
+    // The home screen's attract reel needs no racer: it tours the island on its own clock.
+    state.cinematic = updateHomeCamera(state.cinematic, dt, { raycast, still: scene.reducedMotion });
+    const { position, target, fov } = state.cinematic;
+    const device = scene.app.graphicsDevice;
+    camera.setPosition(position.x, position.y, position.z);
+    camera.lookAt(target.x, target.y, target.z);
+    // Turn left a little so the subject sits beside the title card, not behind it.
+    camera.rotateLocal(0, frameOffsetYaw(fov, state.aspect ?? device.width / device.height), 0);
+    camera.camera.fov = fov;
+    state.chase = null;
+    state.placed = true;
+    return;
+  }
   if (state.mode === "overview" || !followed?.pose) {
     const device = scene.app.graphicsDevice;
     const aspect = state.aspect ?? device.width / device.height;

@@ -4,6 +4,7 @@ import { raceStartSignal } from "../shared/race-start.js";
 import { GameEngine } from "../server/game-engine.js";
 import { createStartLights } from "../src/start-lights.js";
 import { createKartTestApp, readKartContainer } from "./helpers/kart-assets.js";
+import { startRepairedRace } from "./helpers/repaired-race.js";
 
 test("the start clock shows ready, three counts, GO, then clears the overlay", () => {
   const startsAt = 10000;
@@ -23,7 +24,7 @@ test("held throttle revs during countdown, but only GO releases the car", async 
   const player = engine.joinPlayer(room.id, "driver", 1000);
   engine.startPrompting(room.id, room.hostToken, 1000);
   engine.submitPrompt(room.id, player.id, "Kart", 1000);
-  await engine.startRoom(room.id, room.hostToken, undefined, 1002);
+  await startRepairedRace(engine, room, 1002);
   assert.equal(room.startsAt, 6002);
   const position = { ...player.car.worldPosition };
   engine.setControls(room.id, player.id, { accelerate: true, left: true });

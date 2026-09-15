@@ -2,14 +2,12 @@ import { SEAT_COUNT } from "../config.js";
 import { EMPTY_IDENTITY, decoratePlayers, seatStatus } from "../lib/identity.js";
 import { Pill } from "../components/primitives.jsx";
 
-function rulesFor(buildSeconds, arcade) {
+function rulesFor(buildSeconds) {
   return [
     "Describe your car.",
     `You get ${buildSeconds} seconds. One prompt, no edits.`,
     "The garage builds it. Then you race one sprint.",
-    arcade
-      ? "Then race again. Most points after four sprints wins."
-      : "After each sprint, one pit stop: one more message to the garage.",
+    "After each sprint, one pit stop: one more message to the garage.",
   ];
 }
 
@@ -19,7 +17,7 @@ export function WaitingScreen({ room, me }) {
   const filled = players.length <= SEAT_COUNT
     ? `${players.length} of ${SEAT_COUNT} seats filled`
     : `${players.length} drivers in`;
-  const rules = rulesFor(Math.round((room.buildDurationMs ?? 15_000) / 1000), room.defectsEnabled === false);
+  const rules = rulesFor(Math.round((room.buildDurationMs ?? 15_000) / 1000));
 
   return (
     <main className="ph-screen ph-screen--cream ph-waiting">

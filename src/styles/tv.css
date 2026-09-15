@@ -145,7 +145,7 @@
   border-left: 6px solid var(--ink);
   background: var(--cream);
 }
-.tv-join__qr-block { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+.tv-join__qr-block { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
 .tv-join__qr {
   padding: 22px;
   border: 5px solid var(--ink);

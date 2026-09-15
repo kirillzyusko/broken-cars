@@ -299,6 +299,7 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) { .home__map { transition: none; } }
 .home__card {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;

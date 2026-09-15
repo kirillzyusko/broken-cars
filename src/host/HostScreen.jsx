@@ -3,7 +3,7 @@ import BackgroundMusic from "../BackgroundMusic.jsx";
 import { useGameSocket } from "../use-game-socket.js";
 import { useServerClock } from "../lib/use-now.js";
 import { useRaceHistory } from "../lib/use-race-history.js";
-import { arcadeMode, sessionOver } from "../lib/standings.js";
+import { sessionOver } from "../lib/standings.js";
 import { ConnectionBadge, ErrorBanner, StickerButton } from "../components/primitives.jsx";
 import { TvLoading, TvStage } from "./TvStage.jsx";
 import { JoinScreen } from "./JoinScreen.jsx";
@@ -36,7 +36,6 @@ function hostActionFor(room, now, actions) {
       if (room.tuningDeadline - now > 0) return null;
       return { label: "APPLY FIXES & RACE", disabled: false, run: actions.startNextRace };
     case "finished":
-      if (arcadeMode(room)) return { label: "RACE AGAIN", disabled: false, run: actions.restartRace };
       if (sessionOver(room)) return null;
       return { label: "OPEN THE PIT", disabled: false, run: actions.startTuning };
     default:

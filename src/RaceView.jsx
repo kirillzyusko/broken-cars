@@ -55,6 +55,7 @@ function RaceCanvas({
   className = "",
   onReady,
 }) {
+  const frameRef = useRef(null);
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
   const latestRef = useRef(null);
@@ -84,13 +85,16 @@ function RaceCanvas({
   useEffect(() => {
     let cancelled = false;
     let scene;
+    const frame = frameRef.current;
     const canvas = canvasRef.current;
+    // PlayCanvas gives the canvas an explicit pixel size on every resize, so
+    // the box around it is what tracks the layout, not the canvas itself.
     const resize = () => scene?.app.resizeCanvas(
-      Math.max(1, canvas.clientWidth),
-      Math.max(1, canvas.clientHeight),
+      Math.max(1, frame.clientWidth),
+      Math.max(1, frame.clientHeight),
     );
     const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
+    observer.observe(frame);
     createRaceScene(canvas, {
       view: latestRef.current.view,
       currentPlayerId: latestRef.current.currentPlayerId,
@@ -143,7 +147,7 @@ function RaceCanvas({
   }, [cars, obstacles, currentPlayerId, view, feeds, audioActive, room]);
 
   return (
-    <div className={`race-view ${className}`}>
+    <div className={`race-view ${className}`} ref={frameRef}>
       <canvas ref={canvasRef} className="race-view__canvas" aria-label="Corsica GP island circuit" />
       {status ? <div className="race-view__status" role="status">{status.toUpperCase()}</div> : null}
       {renderError ? <p className="race-view__error" role="alert">{renderError}</p> : null}

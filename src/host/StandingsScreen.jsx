@@ -1,5 +1,5 @@
 import { formatRaceResult, kartNameFor, ordinal } from "../lib/format.js";
-import { arcadeMode, roundDots, roundsIn, tally } from "../lib/standings.js";
+import { roundDots, roundsIn, tally } from "../lib/standings.js";
 import { Avatar, Pill, RoundDot, StickerButton } from "../components/primitives.jsx";
 
 export function StandingsScreen({ room, history, hostAction }) {
@@ -56,9 +56,7 @@ export function StandingsScreen({ room, history, hostAction }) {
 
       <footer className="tv-standings__footer">
         <span className="tv-standings__footer-text">
-          {arcadeMode(room)
-            ? "Same karts, one more sprint. Points carry over."
-            : "Open the pit: one message per kart, then race again."}
+          Open the pit: one message per kart, then race again.
         </span>
         {hostAction ? (
           <StickerButton className="tv-button" type="button" disabled={hostAction.disabled} onClick={hostAction.run}>

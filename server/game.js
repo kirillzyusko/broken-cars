@@ -67,10 +67,6 @@ export class BrokenCarsGame {
     return this.engine.startTuning(roomId, hostToken, now);
   }
 
-  restartRace(roomId, hostToken, now) {
-    return this.engine.restartRace(roomId, hostToken, now);
-  }
-
   submitRepair(roomId, playerId, prompt, now) {
     return this.engine.submitTuningPrompt(roomId, playerId, prompt, now);
   }

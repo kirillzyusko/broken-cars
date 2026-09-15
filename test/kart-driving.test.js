@@ -6,6 +6,7 @@ import { createGroundedMovement } from "../shared/driving-world.js";
 import { CAR_SIZE_WORLD, ROAD_WORLD_LENGTH, TRACK_LENGTH_METERS } from "../shared/race-config.js";
 import { getDrivingWorld } from "../server/driving-world.js";
 import { GameEngine } from "../server/game-engine.js";
+import { startRepairedRace } from "./helpers/repaired-race.js";
 
 function kart() {
   const car = { defectIds: [], heat: 0 };
@@ -189,7 +190,7 @@ test("server ticks and sandbox steps produce the same handling at different fram
   engine.joinPlayer(room.id, "driver", 0);
   engine.startPrompting(room.id, room.hostToken, 0);
   engine.submitPrompt(room.id, "driver", "Kart", 0);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 2);
+  await startRepairedRace(engine, room, 2);
   engine.tick(2);
   engine.setControls(room.id, "driver", { accelerate: true, right: true });
   for (let now = 52; now <= 1002; now += 50) engine.tick(now);
@@ -220,7 +221,7 @@ test("map impacts provide the same numeric HUD fields as car and barrier impacts
   engine.joinPlayer(room.id, "driver", 0);
   engine.startPrompting(room.id, room.hostToken, 0);
   engine.submitPrompt(room.id, "driver", "Kart", 0);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 2);
+  await startRepairedRace(engine, room, 2);
   engine.tick(2);
   engine.setControls(room.id, "driver", { accelerate: true });
   engine.tick(52);
