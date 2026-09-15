@@ -1,4 +1,5 @@
 import { decoratePlayers } from "./identity.js";
+import { MAX_RACE_ROUNDS } from "../../shared/race-config.js";
 
 export const POINTS_BY_RANK = Object.freeze([15, 12, 10, 8, 6, 5, 4, 3, 2, 1]);
 export const DNF_POINTS = 1;
@@ -75,9 +76,9 @@ export function allTuned(room) {
   return cars.length > 0 && cars.every((player) => player.car.defects.length === 0);
 }
 
-/** The session ends once nothing is left to fix. */
+/** End after five races, or after the earlier race with all karts repaired. */
 export function sessionOver(room) {
-  return !!room && room.phase === "finished" && allTuned(room);
+  return !!room && room.phase === "finished" && (room.roundNumber >= MAX_RACE_ROUNDS || allTuned(room));
 }
 
 export function windowClosed(room, now) {
@@ -103,10 +104,9 @@ export function statusLabel(player, room, { closed = false } = {}) {
 const COMPLETED_PHASES = new Set(["finished", "tuning", "repairing"]);
 
 /**
- * Round progress markers. The session has no fixed length, so the strip shows
- * at least `minimum` rounds and grows as the session does.
+ * Round progress markers never offer a sixth race.
  */
-export function roundDots(room, { minimum = 4 } = {}) {
+export function roundDots(room, { minimum = MAX_RACE_ROUNDS } = {}) {
   const completed = COMPLETED_PHASES.has(room.phase)
     ? room.roundNumber
     : Math.max(0, room.roundNumber - 1);
@@ -114,8 +114,8 @@ export function roundDots(room, { minimum = 4 } = {}) {
     || room.phase === "repairing"
     || (room.phase === "finished" && !sessionOver(room))
     || !COMPLETED_PHASES.has(room.phase);
-  const current = hasNext ? completed + 1 : 0;
-  const total = Math.max(minimum, current || completed);
+  const current = hasNext && completed < MAX_RACE_ROUNDS ? completed + 1 : 0;
+  const total = Math.min(MAX_RACE_ROUNDS, Math.max(minimum, current || completed));
   return Array.from({ length: total }, (_, index) => {
     const n = index + 1;
     const state = n <= completed ? "done" : n === current ? "current" : "future";

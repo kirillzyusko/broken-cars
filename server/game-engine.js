@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import {
   CAR_SIZE_WORLD,
   TRACK_LENGTH_METERS,
+  MAX_RACE_ROUNDS,
   TRACK_OBSTACLES,
   carPositionToWorld,
   obstaclePositionToWorld,
@@ -767,6 +768,7 @@ export class GameEngine {
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "finished") throw new Error("Finish the current ride first.");
+    if (room.roundNumber >= MAX_RACE_ROUNDS) throw new Error("The five-round session is over.");
     const racers = [...room.players.values()].filter((player) => player.car);
     if (racers.every((player) => player.car.defectIds.length === 0)) {
       throw new Error("Every car is already fully tuned.");
@@ -802,6 +804,7 @@ export class GameEngine {
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "tuning") throw new Error("The tuning round is not active.");
+    if (room.roundNumber >= MAX_RACE_ROUNDS) throw new Error("The five-round session is over.");
     if (now < room.tuningDeadline) throw new Error("The tuning minute is not over yet.");
 
     const racers = [...room.players.values()].filter((player) => player.car);
@@ -835,7 +838,8 @@ export class GameEngine {
       player.car.mechanicNote = mechanicFeedback(previousTuning, player.car.tuning, player.lastRepairIds.map((id) => DEFECT_MAP.get(id)?.label ?? id), player.car.defectIds.length);
     }
 
-    room.finalRace = racers.length > 0 && racers.every((player) => player.car.defectIds.length === 0);
+    room.finalRace = room.roundNumber + 1 >= MAX_RACE_ROUNDS
+      || (racers.length > 0 && racers.every((player) => player.car.defectIds.length === 0));
     room.roundNumber += 1;
     room.finishers = [];
     // Garage requests can outlast the countdown; start it only when cars are ready.

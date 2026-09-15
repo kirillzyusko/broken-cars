@@ -82,3 +82,34 @@ test("the timer still permits a race when a driver never submits", async () => {
   assert.ok(room.players.get("a").car);
   assert.equal(room.players.get("b").car, null);
 });
+
+test("round five is final even with faults remaining, and a sixth race is rejected", async () => {
+  const { sessionOver, roundDots } = await import("../src/lib/standings.js");
+  const game = new BrokenCarsGame({
+    buildDurationMs: 1, tuningDurationMs: 1,
+    defectSelector: async () => ({ player: ["no_engine", "no_grip", "no_steering", "no_brakes"] }),
+    repairSelector: async () => ({ player: [] }),
+  });
+  const room = game.createRoom(1000);
+  game.joinPlayer(room.id, "player", 1000);
+  game.startBuild(room.id, room.hostToken, 1000);
+  game.submitCarPrompt(room.id, "player", "Kart", 1000);
+  await game.startRace(room.id, room.hostToken, 1001);
+  for (let round = 1; round <= 5; round++) {
+    assert.equal(room.roundNumber, round);
+    assert.equal(!!room.finalRace, round === 5);
+    room.phase = "finished";
+    const state = game.getState(room);
+    assert.equal(sessionOver(state), round === 5);
+    assert.equal(roundDots(state).length, 5);
+    if (round < 5) {
+      game.startTuning(room.id, room.hostToken, 2000 + round * 100);
+      await game.startNextRace(room.id, room.hostToken, 2002 + round * 100);
+    }
+  }
+  assert.throws(() => game.startTuning(room.id, room.hostToken), /session is over/);
+  assert.ok(roundDots(game.getState(room)).every((dot) => dot.state === "done"));
+  room.phase = "tuning";
+  await assert.rejects(game.startNextRace(room.id, room.hostToken), /session is over/);
+  assert.equal(room.roundNumber, 5);
+});

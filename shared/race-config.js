@@ -2,6 +2,7 @@ import track from "../public/maps/corsica-gp/track.json" with { type: "json" };
 import kart from "../public/models/kart/kart.json" with { type: "json" };
 
 export const TRACK_LENGTH_METERS = track.serverRaceDistance;
+export const MAX_RACE_ROUNDS = 5;
 export const DISTANCE_TO_WORLD = track.lapLength / TRACK_LENGTH_METERS;
 export const LANE_TO_WORLD = 1.35;
 export const ROAD_HALF_WIDTH = track.roadHalfWidth;
