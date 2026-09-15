@@ -65,7 +65,7 @@ const manifest = {
     "Only replace the child mesh under each WheelMount; preserve the mount transform and its scale.",
     "Skinned engine and steering meshes use the existing kart skeleton. Disable their render components to hide them.",
     "EngineMount has no animation channel and can hold a fixed installation rotation.",
-    "Loose-wheel wobble, wheel spin, steering motion, and other new animations are intentionally absent.",
+    "The GLBs contain only Idle. Game code rolls the wheel meshes with travel and places each tire on the ground.",
   ],
   fileBytes: sizes,
 };

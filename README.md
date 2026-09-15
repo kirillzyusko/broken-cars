@@ -76,7 +76,7 @@ npm run check    # tests and production build
 
 ## Corsica GP map
 
-The [kart driving test](http://localhost:3001/map/drive) uses the same free driving code as multiplayer, with world positions and a chase camera that follows the kart's heading. WASD or arrow keys drive; hold S/down to brake, then reverse; Space only brakes; R resets the sandbox. Acceleration is quick, steering tightens at low speed, and releasing steering holds the chosen direction. There is no drift or jump input, and the kart keeps its existing Idle animation.
+The [kart driving test](http://localhost:3001/map/drive) uses the same free driving code as multiplayer, with world positions and a chase camera that follows the kart's heading. WASD or arrow keys drive; hold S/down to brake, then reverse; Space only brakes; R resets the sandbox. Acceleration is quick, steering tightens at low speed, and releasing steering holds the chosen direction. There is no drift or jump input. The kart keeps its existing Idle animation, while wheel meshes roll with travel and follow the ground at each tire.
 
 The chase camera in `src/kart-camera.js` follows the kart's position directly and eases its rotation through turns. It keeps the kart below screen centre, adds a small speed-based change in distance and field of view, and checks the centre and edges of the camera against scenery. Resets and camera switches snap to the new car. Framing is based on [Nintendo's Mario Kart 8 Deluxe cornering footage](https://www.nintendo.com/jp/ichikara/aabpa/02_en.html); camera distances and timing are tuned for this game's kart.
 

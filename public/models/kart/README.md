@@ -26,19 +26,19 @@ For a backwards engine, rotate `EngineMount` by a fixed 180 degrees about its lo
 
 Each wheel mesh is a child of `WheelMount.FL`, `FR`, `RL`, or `RR`. Replace that child with the chosen standalone wheel at an identity local transform. Keep the mount's transform. Both tires use meters and share an inboard axle origin; the axle points along local -Z in GLB and local +Y in Blender.
 
-For sideways mounting, rotate the child mesh 90 degrees about its local Y axis in the game. Hide the four wheel meshes for missing wheels. These are fixed placements; there is no wheel spin or wobble animation.
+For sideways mounting, rotate the child mesh 90 degrees about its local Y axis in the game. Hide the four wheel meshes for missing wheels. The game rotates round and square wheel meshes from signed travel distance. Sideways wheels keep their fixed mounting angle and scrape.
 
 The square tire keeps the source tire's round hub and UV atlas. Its outer corners have an approximately 26 mm radius on a 491 mm wide square profile. The original rounded shoulders soften the edges across the tire width. Both tires share `Kart_BaseColor.png` and `Kart_ORM.png`; ORM uses red for occlusion, green for roughness, and blue for metallic.
 
 ## Animation and game integration
 
-The only clip is the supplied `Idle` animation. It moves the engine, belts, and exhausts. No steering, wheel spin, wobble, or other motion was added. The original clip has 30 frames at 30 fps. Unit conversion changes its stored translation values while preserving the motion in meters.
+The only clip is the supplied `Idle` animation. It moves the engine, belts, and exhausts. The exported clips add no steering, wheel spin, or wobble. The game now applies wheel rolling and ground contact separately. The original clip has 30 frames at 30 fps. Unit conversion changes its stored translation values while preserving the motion in meters.
 
 The GLB uses +Y up and -Z forward. The rig and mounts use meters. All original bone names remain, with one added fixed `EngineMount` bone for installation angle.
 
 Brake, cooling, seatbelt, pedal, grip, engine-power, steering-control, and loose-wheel defects remain UI and driving behavior. All 16 defect IDs in the current game are covered by `kart.json`.
 
-The multiplayer race and `/map/drive` use the same kart loader. It loads the round kart and square tire once per scene, gives each car its own skeleton, and keeps the original texture atlas. Defect updates hide or restore meshes and change fixed mounting angles without restarting `Idle`.
+The multiplayer race and `/map/drive` use the same kart loader. It loads the round kart and square tire once per scene, gives each car its own skeleton, and keeps the original texture atlas. Defect updates hide or restore meshes and change fixed mounting angles without restarting `Idle`. Tire rotation follows actual movement, reverses when backing up, and stops at rest. Each tire samples the ground across its tread. The chassis settles between those contacts, and wheel offsets take up curb height differences.
 
 The game keeps the kart 1.4 meters long and uses a uniform scale to fit the painted starting slots. `kart.json` stores bounds measured after skinning and the front-axle position. The shared server and client collision dimensions come from those measurements. Tire contact starts at road height, and the front wheel mounts align with the car's yaw pivot. The collision box stays the same when parts are missing.
 

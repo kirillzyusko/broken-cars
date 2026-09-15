@@ -6,6 +6,26 @@ const BASE_URL = "/models/kart/";
 const VISUAL_DEFECTS = Object.keys(kart.visualDefects);
 const SIDEWAYS = new pc.Quat().setFromEulerAngles(0, 90, 0);
 const BACKWARDS = new pc.Quat().setFromEulerAngles(0, 180, 0);
+const AXLE = new pc.Vec3(0, 0, 1);
+
+function wheelGeometry(root) {
+  return root.findComponents("render").flatMap((render) => render.meshInstances.map((instance) => {
+    const positions = [];
+    instance.mesh.getPositions(positions);
+    return { instance, positions };
+  }));
+}
+
+function tireBottom(geometry) {
+  let bottom = Infinity;
+  for (const { instance, positions } of geometry) {
+    const m = instance.node.getWorldTransform().data;
+    for (let i = 0; i < positions.length; i += 3) {
+      bottom = Math.min(bottom, m[1] * positions[i] + m[5] * positions[i + 1] + m[9] * positions[i + 2] + m[13]);
+    }
+  }
+  return bottom;
+}
 
 export async function loadKartAssets(app, isCancelled) {
   const load = (file) => new Promise((resolve, reject) => {
@@ -44,7 +64,13 @@ export function createKartVisual(assets) {
       mount.addChild(square);
       square.enabled = false;
       const rest = round.getLocalRotation().clone();
-      return { round, square, rest, sideways: rest.clone().mul(SIDEWAYS) };
+      const axis = round.getWorldTransform().transformVector(AXLE).normalize();
+      const half = round.render.meshInstances[0].mesh.aabb.halfExtents;
+      return { round, square, rest, sideways: rest.clone().mul(SIDEWAYS), angle: 0,
+        direction: -Math.sign(axis.x), radius: Math.max(half.x, half.y) * KART_SCALE,
+        halfWidth: half.z * KART_SCALE,
+        roundPosition: round.getLocalPosition().clone(), squarePosition: square.getLocalPosition().clone(),
+        roundGeometry: wheelGeometry(round), squareGeometry: wheelGeometry(square) };
     });
     const idle = assets.round.animations.find((asset) => asset.resource.name === kart.animation);
     if (!idle) throw new Error("Kart asset is missing its Idle animation");
@@ -59,6 +85,54 @@ export function createKartVisual(assets) {
       -CAR_SIZE_WORLD.y / 2 - kart.geometry.bounds.min[1] * KART_SCALE,
       -kart.geometry.frontAxle[2] * KART_SCALE,
     );
+    const basePosition = entity.getLocalPosition().clone();
+    let sidewaysWheels = false;
+    const spin = new pc.Quat();
+    const rotation = new pc.Quat();
+
+    function placeWheels() {
+      for (const wheel of wheels) {
+        spin.setFromAxisAngle(AXLE, sidewaysWheels ? 0 : wheel.angle);
+        rotation.copy(sidewaysWheels ? wheel.sideways : wheel.rest).mul(spin);
+        wheel.round.setLocalRotation(rotation);
+        wheel.square.setLocalRotation(rotation);
+      }
+    }
+
+    function updateMotion(travel, groundRaycast) {
+      entity.setLocalPosition(basePosition);
+      for (const wheel of wheels) {
+        wheel.round.setLocalPosition(wheel.roundPosition);
+        wheel.square.setLocalPosition(wheel.squarePosition);
+        if (!sidewaysWheels && (wheel.round.enabled || wheel.square.enabled)) {
+          wheel.angle = (wheel.angle + travel / wheel.radius * 180 / Math.PI * wheel.direction) % 360;
+        }
+      }
+      placeWheels();
+      if (!groundRaycast) return;
+      const contacts = [];
+      for (const wheel of wheels) {
+        const mesh = wheel.round.enabled ? wheel.round : wheel.square.enabled ? wheel.square : null;
+        if (!mesh) continue;
+        const bottom = tireBottom(mesh === wheel.round ? wheel.roundGeometry : wheel.squareGeometry);
+        const center = mesh.getPosition().clone();
+        const axis = wheel.round.getWorldTransform().transformVector(AXLE).normalize();
+        let height = -Infinity;
+        // Check across the tread so the curb cannot pass through a tire edge.
+        for (const side of [-0.8, 0, 0.8]) {
+          const point = { x: center.x + axis.x * wheel.halfWidth * side, z: center.z + axis.z * wheel.halfWidth * side };
+          const hit = groundRaycast({ ...point, y: bottom + 0.25 }, { ...point, y: bottom - 0.65 });
+          if (hit && hit.point.y >= -0.6) height = Math.max(height, hit.point.y);
+        }
+        if (Number.isFinite(height)) contacts.push({ mesh, center, delta: height - bottom - 0.001 });
+      }
+      if (!contacts.length) return;
+      // Settle the chassis between its tire contacts; suspension takes up the
+      // difference at each wheel instead of leaving the downhill tires hanging.
+      const bodyOffset = pc.math.clamp(contacts.reduce((sum, c) => sum + c.delta, 0) / contacts.length, -0.2, 0.2);
+      entity.setLocalPosition(basePosition.x, basePosition.y + bodyOffset, basePosition.z);
+      for (const { mesh, center, delta } of contacts) mesh.setPosition(center.x, center.y + delta, center.z);
+    }
 
     let lastSignature;
     function applyDefects(defectIds = []) {
@@ -69,18 +143,17 @@ export function createKartVisual(assets) {
       engine.render.enabled = !defects.has("no_engine");
       steering.render.enabled = !defects.has("no_steering");
       engineMount.setLocalRotation(defects.has("backwards_engine") ? engineBackwards : engineRest);
+      sidewaysWheels = defects.has("sideways_wheels");
       for (const wheel of wheels) {
         const visible = !defects.has("no_wheels");
         const square = defects.has("square_wheels");
         wheel.round.enabled = visible && !square;
         wheel.square.enabled = visible && square;
-        const rotation = defects.has("sideways_wheels") ? wheel.sideways : wheel.rest;
-        wheel.round.setLocalRotation(rotation);
-        wheel.square.setLocalRotation(rotation);
       }
+      placeWheels();
     }
     applyDefects();
-    return { entity, applyDefects };
+    return { entity, applyDefects, updateMotion };
   } catch (error) {
     entity.destroy();
     throw error;

@@ -101,6 +101,7 @@ export function syncCars(scene, cars) {
       state.distance = car.distance;
       state.lane = car.lane;
       state.heading = car.heading;
+      state.wheelPose = null;
       scene.cameraPlaced = false;
     }
     state.car = car;
@@ -167,6 +168,12 @@ function updateScene(scene, dt) {
     const axle = frontAxleWorldPosition(pose, pose.yaw);
     state.entity.setPosition(axle.x, axle.y, axle.z);
     state.entity.setEulerAngles(0, pose.yaw, 0);
+    const previous = state.wheelPose;
+    const travel = previous ? (pose.x - previous.x) * pose.forward.x + (pose.z - previous.z) * pose.forward.z : 0;
+    state.visual.updateMotion(Math.abs(travel) < 2 ? travel : 0, (start, end) =>
+      scene.app.systems.rigidbody.raycastFirst(new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
+        { filterCollisionMask: pc.BODYGROUP_STATIC }));
+    state.wheelPose = { x: pose.x, z: pose.z };
   }
   const start = scene.startClock;
   const now = start ? start.serverNow + performance.now() - start.receivedAt : 0;

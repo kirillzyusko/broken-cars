@@ -9,6 +9,7 @@ import { CAR_SIZE_WORLD, CAR_FRONT_AXLE_OFFSET_WORLD } from "../shared/race-conf
 import { measureKart } from "../scripts/measure-kart.js";
 import manifest from "../public/models/kart/kart.json" with { type: "json" };
 import { createKartTestApp, readKartContainer } from "./helpers/kart-assets.js";
+import { getDrivingWorld } from "../server/driving-world.js";
 
 let app;
 let assets;
@@ -24,6 +25,70 @@ after(() => app.destroy());
 const node = (visual, name) => visual.entity.findByName(name);
 const visibleParts = (entity) => entity.findComponents("render").filter((render) => render.enabled && render.entity.enabled);
 const near = (actual, expected, tolerance = 0.0001) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
+
+test("wheel rolling follows travel, reverses, and survives the existing Idle animation", () => {
+  const visual = createKartVisual(assets);
+  app.root.addChild(visual.entity);
+  const left = node(visual, "Part.Wheel.FL");
+  const right = node(visual, "Part.Wheel.FR");
+  const rest = left.getLocalRotation().clone();
+  const axle = left.getPosition().clone();
+  visual.updateMotion(0.2);
+  const rolled = left.getLocalRotation().clone();
+  assert.ok(!rolled.equals(rest));
+  assert.ok(axle.distance(left.getPosition()) < 1e-6, "rolling must not move the axle");
+  const leftDelta = rest.clone().invert().mul(rolled).getEulerAngles().z;
+  const rightRest = right.getLocalRotation().clone();
+  visual.updateMotion(0.01);
+  const rightDelta = rightRest.invert().mul(right.getLocalRotation()).getEulerAngles().z;
+  assert.ok(leftDelta < 0 && rightDelta > 0, "mirrored wheel mounts need opposite local spin");
+  app.systems.anim.onAnimationUpdate(0.13);
+  const moving = left.getLocalRotation().clone();
+  visual.updateMotion(0);
+  assert.ok(moving.equals(left.getLocalRotation()), "stationary wheels keep their phase");
+  visual.updateMotion(-0.21);
+  assert.ok(Math.abs(rest.dot(left.getLocalRotation())) > 0.99999, "reverse travel unwinds the rotation");
+  visual.applyDefects(["square_wheels"]);
+  const square = node(visual, "Part.SquareWheel.FL");
+  visual.updateMotion(0.1);
+  assert.ok(square.getLocalRotation().equals(left.getLocalRotation()));
+  visual.applyDefects(["sideways_wheels"]);
+  const sideways = left.getLocalRotation().clone();
+  visual.updateMotion(0.2);
+  assert.ok(sideways.equals(left.getLocalRotation()), "sideways tires scrape rather than roll forward");
+  visual.entity.destroy();
+});
+
+test("each tire meets its ground surface when straddling curb and grass", () => {
+  const visual = createKartVisual(assets);
+  const pivot = new pc.Entity("Curb contact test", app);
+  app.root.addChild(pivot);
+  pivot.addChild(visual.entity);
+  const world = getDrivingWorld();
+  const curb = world.raycast({ x: 3.5, y: 1, z: 8 }, { x: 3.5, y: -1, z: 8 }, true).point.y;
+  pivot.setPosition(4.1, curb + CAR_SIZE_WORLD.y / 2, 8);
+  const baseY = visual.entity.getLocalPosition().y;
+  visual.updateMotion(0.12, (a, b) => world.raycast(a, b, true));
+  assert.ok(visual.entity.getLocalPosition().y < baseY - 0.05, "the chassis settles between high and low tires");
+  for (const slot of ["FL", "FR", "RL", "RR"]) {
+    const wheel = node(visual, `Part.Wheel.${slot}`);
+    let bottom = Infinity;
+    for (const instance of wheel.render.meshInstances) {
+      const positions = []; instance.mesh.getPositions(positions);
+      const matrix = instance.node.getWorldTransform();
+      for (let i = 0; i < positions.length; i += 3) {
+        bottom = Math.min(bottom, matrix.transformPoint(new pc.Vec3(...positions.slice(i, i + 3))).y);
+      }
+    }
+    const center = wheel.getPosition();
+    const ground = world.raycast({ x: center.x, y: 1, z: center.z }, { x: center.x, y: -1, z: center.z }, true);
+    near(bottom, ground.point.y - 0.001, 0.002);
+  }
+  const settled = visual.entity.getLocalPosition().clone();
+  visual.updateMotion(0, (a, b) => world.raycast(a, b, true));
+  assert.ok(settled.distance(visual.entity.getLocalPosition()) < 1e-6, "suspension offsets must not accumulate at rest");
+  pivot.destroy();
+});
 
 test("multiplayer karts apply defects and repairs on the same animated instance", () => {
   const scene = { app, kartAssets: assets, carStates: new Map(), cameraPlaced: true };
