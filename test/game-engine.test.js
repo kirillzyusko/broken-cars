@@ -106,7 +106,8 @@ test("every car leaves the garage broken and server-authoritative controls move 
 
   const car = room.players.get("player-1").car;
   assert.equal(selectorCalled, true);
-  assert.deepEqual(car.defectIds, ["no_brakes", "no_seatbelt", "no_steering"]);
+  assert.deepEqual(car.defectIds, ["no_steering"]);
+  assert.deepEqual(car._queuedDefectIds, ["no_brakes", "no_seatbelt"]);
   assert.ok(car.speed > 0);
   assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected full acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
@@ -388,7 +389,7 @@ test("swapped pedals, reversed steering, stuck acceleration, and backwards engin
     room.hostToken,
     async () => Object.fromEntries(defectIds.map((defectId, index) => [
       `player-${index}`,
-      [defectId, "no_seatbelt", index === 0 ? "no_steering" : "no_brakes"],
+      [defectId, "no_seatbelt", "loose_wheel"],
     ])),
     1_002,
   );
@@ -474,7 +475,7 @@ test("room snapshots keep car prompts private from the host and other players", 
   assert.equal(racingHostSnapshot.players[1].car.name, "Driver 2's car");
 });
 
-test("each tuning round permanently repairs every specifically reported current defect", async () => {
+test("repairs unlock fatal, critical, and annoying defects in order", async () => {
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
@@ -489,40 +490,66 @@ test("each tuning round permanently repairs every specifically reported current 
     room.id,
     room.hostToken,
     async () => ({
-      "player-1": ["no_brakes", "reversed_steering", "no_grip"],
+      "player-1": ["square_wheels", "no_engine", "no_grip"],
     }),
     1_002,
   );
 
+  const player = room.players.get("player-1");
+  assert.deepEqual(player.car.defectIds, ["no_engine"]);
+  assert.deepEqual(player.car._queuedDefectIds, ["no_grip", "square_wheels"]);
+  const initialSnapshot = engine.serialize(room, { viewerPlayerId: "player-1" });
+  assert.deepEqual(initialSnapshot.players[0].car.defectIds, ["no_engine"]);
+  assert.deepEqual(initialSnapshot.players[0].car.defects.map((item) => item.id), ["no_engine"]);
+  assert.equal("_queuedDefectIds" in initialSnapshot.players[0].car, false);
+
   room.phase = "finished";
-  room.players.get("player-1").car.distance = 250;
-  room.players.get("player-1").car.speed = 20;
+  player.car.distance = 250;
+  player.car.speed = 20;
   engine.startTuning(room.id, room.hostToken, 2_000);
   engine.submitTuningPrompt(
     room.id,
     "player-1",
-    "The steering is reversed and it slides like ice",
+    "Install the missing engine and replace the square wheels",
     2_001,
   );
+  let repairInput;
   await engine.startNextRace(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": ["reversed_steering", "no_grip"] }),
+    async (players) => {
+      repairInput = players;
+      return { "player-1": ["square_wheels", "no_engine"] };
+    },
     2_011,
   );
 
-  const player = room.players.get("player-1");
-  assert.deepEqual(player.car.defectIds, ["no_brakes"]);
-  assert.equal(player.lastRepairId, "reversed_steering");
-  assert.deepEqual(player.lastRepairIds, ["reversed_steering", "no_grip"]);
+  assert.deepEqual(repairInput[0].defectIds, ["no_engine"]);
+  assert.deepEqual(player.car.defectIds, ["no_grip"]);
+  assert.deepEqual(player.car._queuedDefectIds, ["square_wheels"]);
+  assert.equal(player.lastRepairId, "no_engine");
+  assert.deepEqual(player.lastRepairIds, ["no_engine"]);
   assert.deepEqual(
     engine.serialize(room, { viewerPlayerId: "player-1" }).players[0].lastRepairs.map((item) => item.id),
-    ["reversed_steering", "no_grip"],
+    ["no_engine"],
   );
   assert.equal(player.car.distance, 0);
   assert.equal(player.car.speed, 0);
   assert.equal(room.roundNumber, 2);
   assert.equal(room.phase, "countdown");
+
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 3_000);
+  engine.submitTuningPrompt(room.id, "player-1", "Fix the missing grip", 3_001);
+  await engine.startNextRace(
+    room.id,
+    room.hostToken,
+    async () => ({ "player-1": ["no_grip"] }),
+    3_011,
+  );
+  assert.deepEqual(player.car.defectIds, ["square_wheels"]);
+  assert.deepEqual(player.car._queuedDefectIds, []);
+  assert.equal(player.lastRepairId, "no_grip");
 });
 
 test("the engine applies the LLM decision without locally parsing the prompt", async () => {
@@ -560,10 +587,10 @@ test("the engine applies the LLM decision without locally parsing the prompt", a
   const player = room.players.get("player-1");
   assert.deepEqual(
     player.car.defectIds,
-    ["reversed_steering"],
+    ["no_brakes"],
   );
-  assert.equal(player.lastRepairId, "no_brakes");
-  assert.deepEqual(player.lastRepairIds, ["no_brakes", "no_grip"]);
+  assert.equal(player.lastRepairId, "no_grip");
+  assert.deepEqual(player.lastRepairIds, ["no_grip"]);
 });
 
 test("host snapshots never reveal private tuning prompts", async () => {
@@ -690,7 +717,7 @@ test("a car without brakes cannot reverse either", async () => {
   await engine.startRoom(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "no_steering"] }),
+    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "loose_wheel"] }),
     1_002,
   );
   room.startsAt = 2_000;

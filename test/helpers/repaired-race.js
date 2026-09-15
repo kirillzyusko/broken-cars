@@ -9,5 +9,8 @@ export async function startRepairedRace(engine, room, now = 1_002) {
     async (racers) => Object.fromEntries(racers.map((player) => [player.id, STOCK_DEFECTS])),
     now,
   );
-  for (const player of room.players.values()) player.car.defectIds = [];
+  for (const player of room.players.values()) {
+    player.car.defectIds = [];
+    player.car._queuedDefectIds = [];
+  }
 }

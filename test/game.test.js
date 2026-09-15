@@ -10,9 +10,9 @@ test("BrokenCarsGame exposes the complete multi-round integration surface", asyn
     maxRaceDurationMs: 100,
     selectorName: () => "Test mechanic",
     defectSelector: async () => ({
-      player: ["no_brakes", "reversed_steering", "no_grip"],
+      player: ["no_engine", "no_grip", "reversed_steering"],
     }),
-    repairSelector: async () => ({ player: ["no_brakes", "no_grip"] }),
+    repairSelector: async () => ({ player: ["no_engine", "reversed_steering"] }),
   });
 
   const room = game.createRoom(1_000);
@@ -28,12 +28,12 @@ test("BrokenCarsGame exposes the complete multi-round integration surface", asyn
 
   room.phase = "finished";
   game.startTuning(room.id, room.hostToken, 2_000);
-  game.submitRepair(room.id, "player", "The brakes do not work and it slides like ice", 2_001);
+  game.submitRepair(room.id, "player", "The engine is missing", 2_001);
   await game.startNextRace(room.id, room.hostToken, 2_011);
 
   const state = game.getState(room, { now: 2_011, viewerPlayerId: "player" });
   assert.equal(state.roundNumber, 2);
-  assert.deepEqual(state.players[0].car.defectIds, ["reversed_steering"]);
-  assert.equal(state.players[0].lastRepair.id, "no_brakes");
-  assert.deepEqual(state.players[0].lastRepairs.map((item) => item.id), ["no_brakes", "no_grip"]);
+  assert.deepEqual(state.players[0].car.defectIds, ["no_grip"]);
+  assert.equal(state.players[0].lastRepair.id, "no_engine");
+  assert.deepEqual(state.players[0].lastRepairs.map((item) => item.id), ["no_engine"]);
 });
