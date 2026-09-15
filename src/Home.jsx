@@ -1,7 +1,8 @@
 import { useState } from "react";
 import BackgroundMusic from "./BackgroundMusic.jsx";
+import MenuMapBackground from "./MenuMapBackground.jsx";
 import { GAME_NAME } from "./config.js";
-import { CheckerStrip, Pill, StickerButton } from "./components/primitives.jsx";
+import { Pill, StickerButton } from "./components/primitives.jsx";
 
 export function Home() {
   const [creating, setCreating] = useState(false);
@@ -26,9 +27,8 @@ export function Home() {
   return (
     <main className="home">
       <BackgroundMusic />
-      <CheckerStrip className="home__strip" />
-      <div className="home__circle" aria-hidden="true" />
-      <div className="home__ground" aria-hidden="true" />
+      <MenuMapBackground />
+      <div className="home__shade" aria-hidden="true" />
       <section className="home__card">
         <Pill tone="red" className="home__pill">Party mode · phones vs. the garage</Pill>
         <h1 className="home__wordmark">{GAME_NAME}</h1>
