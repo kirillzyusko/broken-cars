@@ -12,6 +12,7 @@ import { useGameSocket } from "./use-game-socket.js";
 import { createPlayerId } from "./player-identity.js";
 
 const RaceScene = lazy(() => import("./RaceScene.jsx"));
+const MapGraphicsTest = lazy(() => import("./MapGraphicsTest.jsx"));
 const MapPreview = lazy(() => import("./MapPreview.jsx"));
 
 const EMPTY_CONTROLS = {
@@ -736,6 +737,7 @@ function Player({ roomId }) {
 
 export default function App() {
   const route = routeFromPath();
+  if (window.location.pathname === "/map/graphics") return <Suspense fallback={null}><MapGraphicsTest /></Suspense>;
   if (window.location.pathname === "/map") return <Suspense fallback={<RaceSceneLoading />}><MapPreview /></Suspense>;
   if (route.page === "host") return <Host roomId={route.roomId} />;
   if (route.page === "play") return <Player roomId={route.roomId} />;

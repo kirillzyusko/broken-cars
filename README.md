@@ -64,6 +64,8 @@ npm run check    # tests and production build
 
 ## Corsica GP map
 
+Open [the graphics test level](http://localhost:3001/map/graphics) for four fixed cameras in a full-screen 2×2 grid. Top left shows the island, top right the start line, bottom left the mountain road at driver height, and bottom right the coast. The page has no HUD, controls, cars, or room connection. All views share one map and the race settings in `src/race-lighting.js`, `src/race-water.js`, and `src/race-skybox.js`. Camera positions live in `src/map-graphics-runtime.js`.
+
 Open [the map preview](http://localhost:3001/map) to explore the island without creating a room. Use the camera menu for a whole-island view, broadcast camera, chase camera, or driver view. The lap slider lets you inspect any part of the track.
 
 The game loads `public/maps/corsica-gp/visual.glb` and `collision.glb` through PlayCanvas's container loader. The visual export keeps all 3,668 authored objects, including sponsor textures. Repeated scenery uses 284 GPU batches, grouped into 32-meter cells with bounds for camera culling. The visual GLB is about 2.2 MB; the collision GLB is about 3.2 MB. Textures are embedded and Ammo runs from `public/physics/`, so map loading needs no external CDN.

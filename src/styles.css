@@ -414,3 +414,12 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   .race-world__camera span { display: none; }
   .race-world__heading > span { display: none; }
 }
+
+.map-graphics-test {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  background: #11110f;
+}
