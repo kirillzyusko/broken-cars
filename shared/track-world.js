@@ -78,8 +78,19 @@ export function updateLapProgress(car, previous) {
     if (Math.abs(-gate.forward.z * x + gate.forward.x * z) < ROAD_HALF_WIDTH + 1.5) car.nextGate++;
   }
   if (car.nextGate > LAP_GATES) { car.distance = TRACK_LENGTH_METERS; return; }
-  const last = sampleTrack(Math.max(0, car.nextGate - 1) * gateSpacing);
-  const along = (car.worldPosition.x - last.x) * last.forward.x + (car.worldPosition.z - last.z) * last.forward.z;
-  car.distance = car.nextGate === 0 ? 0 : Math.max(0, (car.nextGate - 1 + Math.min(0.999, Math.max(0, along / gateSpacing))) / LAP_GATES * TRACK_LENGTH_METERS);
-  car.lane = (-last.forward.z * (car.worldPosition.x - last.x) + last.forward.x * (car.worldPosition.z - last.z)) / 1.35;
+  // Project onto nearby track segments so overtakes and reversing change order.
+  // Ordered gates still cap progress and prevent shortcuts from completing a lap.
+  let nearest = null;
+  for (let segment = Math.max(-6, car.nextGate - 7); segment < Math.max(1, car.nextGate); segment++) {
+    const startDistance = segment * gateSpacing;
+    const a = sampleTrack(startDistance);
+    const b = sampleTrack(startDistance + gateSpacing);
+    const dx = b.x - a.x, dz = b.z - a.z;
+    const t = Math.max(0, Math.min(1, ((car.worldPosition.x - a.x) * dx + (car.worldPosition.z - a.z) * dz) / (dx * dx + dz * dz)));
+    const x = a.x + dx * t, z = a.z + dz * t;
+    const error = (car.worldPosition.x - x) ** 2 + (car.worldPosition.z - z) ** 2;
+    if (!nearest || error < nearest.error) nearest = { error, distance: startDistance + t * gateSpacing, pose: a };
+  }
+  car.distance = Math.min(nearest.distance, car.nextGate * gateSpacing - 0.001) / ROAD_WORLD_LENGTH * TRACK_LENGTH_METERS;
+  car.lane = (-nearest.pose.forward.z * (car.worldPosition.x - nearest.pose.x) + nearest.pose.forward.x * (car.worldPosition.z - nearest.pose.z)) / 1.35;
 }

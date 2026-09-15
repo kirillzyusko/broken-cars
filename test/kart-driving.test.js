@@ -362,3 +362,21 @@ test("drifting carries speed through a tighter corner and recovers without stall
   run(sliding, { accelerate: true, left: true, drift: true }, 0.5);
   assert.ok(sliding.driftSlip > 0, "the next corner can go the other way");
 });
+
+test("race progress separates cars before the line and decreases when reversing", () => {
+  const front = kart(), back = kart();
+  const place = (car, metres) => {
+    const previous = { ...car.worldPosition };
+    const pose = sampleTrack(metres);
+    car.worldPosition = { x: pose.x, y: car.worldPosition.y, z: pose.z };
+    updateLapProgress(car, previous);
+  };
+  place(front, -1);
+  place(back, -4);
+  assert.ok(front.distance > back.distance);
+  place(front, 1);
+  for (let metres = 2; metres < 30; metres++) place(front, metres);
+  const ahead = front.distance;
+  for (let metres = 28; metres >= 12; metres--) place(front, metres);
+  assert.ok(front.distance < ahead - 5, "reversing across checkpoints must lose position");
+});

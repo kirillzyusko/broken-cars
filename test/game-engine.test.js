@@ -398,7 +398,7 @@ test("swapped pedals, reversed steering, stuck acceleration, and backwards engin
   assert.ok(room.players.get("player-0").car.speed > 0);
   assert.ok(room.players.get("player-1").car.lane < 0);
   assert.equal(room.players.get("player-2").car.acceleratorStuck, true);
-  assert.equal(room.players.get("player-3").car.distance, 0);
+  assert.ok(room.players.get("player-3").car.distance < 0, "backwards driving loses progress behind the start line");
 
   const stuckSpeed = room.players.get("player-2").car.speed;
   engine.setControls(room.id, "player-2", {});
