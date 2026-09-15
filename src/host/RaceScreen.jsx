@@ -124,7 +124,7 @@ function DriverFaults({ player }) {
   if (ids.length === 0) {
     return (
       <span className="tv-feed__faults tv-feed__faults--fixed" role="img" aria-label={`${player.name}: no remaining faults`} title="Fully fixed">
-        <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="#22854f" />
           <path d="m9 16 5 5 9-10" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -139,7 +139,7 @@ function DriverFaults({ player }) {
         const label = icon.label.join(" ").toLowerCase();
         return (
           <li key={id} title={label}>
-            <img src={icon.src} alt={label} width="40" height="40" draggable={false} />
+            <img src={icon.src} alt={label} width="20" height="20" draggable={false} />
           </li>
         );
       })}
