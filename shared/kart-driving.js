@@ -95,7 +95,6 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   }
   if (defects.has("square_wheels")) {
     engineAcceleration *= 0.72;
-    maxSpeed = Math.min(maxSpeed, 23);
     rollingDrag += 1.8 + Math.abs(Math.sin(raceElapsedMs / 115)) * 2.2;
   }
   if (defects.has("loose_wheel")) maxSpeed *= 0.86;
@@ -130,6 +129,8 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
 
   const speedTuning = tuningMultiplier(car.tuning?.speed, 0.35, 8);
   const steeringTuning = tuningMultiplier(car.tuning?.steering, 0.12, 4);
+  // Apply after engine defects so extra power cannot erase the wheel penalty.
+  if (defects.has("square_wheels")) maxSpeed *= 0.65;
   maxSpeed *= speedTuning;
   engineAcceleration *= speedTuning * (stalled ? 0 : boosted ? 1.8 : 1);
   if (car.offRoad) { maxSpeed *= DRIVING_TUNING.offRoadSpeed; engineAcceleration *= 0.8; rollingDrag += 2; }

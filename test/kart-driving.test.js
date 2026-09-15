@@ -17,6 +17,19 @@ function run(car, controls, seconds, world) {
   for (let i = 0; i < Math.round(seconds / DRIVING_STEP); i++) stepKart(car, controls, DRIVING_STEP, i * DRIVING_STEP * 1000, world);
 }
 
+test("square wheels lower speed with stock, tuned and overpowered engines; repairs restore it", () => {
+  for (const setup of [{}, { tuning: { speed: 2 } }, { defectIds: ["bad_engine_power"], enginePowerIssue: "overpowered" }]) {
+    const normal = Object.assign(kart(), setup);
+    const square = Object.assign(kart(), setup, { defectIds: [...(setup.defectIds ?? []), "square_wheels"] });
+    run(normal, { accelerate: true }, 30);
+    run(square, { accelerate: true }, 30);
+    assert.ok(square.speed < normal.speed * 0.7);
+    square.defectIds = [...normal.defectIds];
+    run(square, { accelerate: true }, 30);
+    assert.ok(Math.abs(square.speed - normal.speed) < 0.1);
+  }
+});
+
 test("free driving can turn a full circle and leave the old lane bounds", () => {
   const car = kart();
   let furthestX = 0;
