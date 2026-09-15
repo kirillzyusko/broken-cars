@@ -368,3 +368,23 @@ test("OpenAI failures do not silently bypass prompt constraints", async () => {
     /OpenAI returned 500/,
   );
 });
+
+test("initial AI tuning survives defect normalization and balancing", async () => {
+  const tuning = { speed: "increase_5", steering: "low" };
+  const result = await defectTestUtils.selectWithOpenAI(
+    [{ id: "driver", prompt: "Make it a little faster with gentler steering" }],
+    {
+      apiKey: "test-key",
+      fetchImpl: async () => ({
+        ok: true,
+        json: async () => ({ output_text: JSON.stringify({ assignments: [{
+          playerId: "driver", tuning,
+          defectIds: ["square_wheels", "no_brakes", "no_seatbelt", "loose_wheel"],
+          avoidedDefectIds: [],
+        }] }) }),
+      }),
+    },
+  );
+  assert.deepEqual(result.driver.tuning, tuning);
+  assert.equal(defectTestUtils.validSelection(result.driver.defectIds), true);
+});
