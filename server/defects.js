@@ -106,32 +106,6 @@ const INCOMPATIBLE_PAIRS = [
 ];
 
 const ROUND_WHEELS_PATTERN = /(?:\b(?:round|circular)\s+(?:wheels?|tyres?|tires?)\b|\b(?:wheels?|tyres?|tires?)\s+(?:(?:must|should)\s+be\s+|are\s+)?(?:round|circular)\b|кругл(?:ые|ыми|ых)?\s+кол[её]с)/iu;
-const GENERIC_REPAIR_PATTERNS = [
-  /^(?:(?:please\s+)?(?:make|keep)\s+(?:the\s+)?car\s+(?:fully\s+)?(?:working|functional)|(?:please\s+)?(?:fix|repair)\s+(?:the\s+car|everything|all(?:\s+(?:the\s+)?(?:defects?|problems?|issues?))?))$/iu,
-  /^(?:the\s+)?car\s+(?:should|must)\s+be\s+(?:fully\s+)?(?:working|functional)$/iu,
-  /^(?:сделай|пусть)\s+машин[ау]\s+(?:полностью\s+)?(?:рабочей|исправной)$/iu,
-  /^машин[ауы]\s+должна\s+быть\s+(?:полностью\s+)?(?:рабочей|исправной)$/iu,
-  /^(?:почини|исправь|убери)\s+(?:машин[ау]|вс[её]|все\s+(?:дефекты|проблемы|поломки))$/iu,
-];
-const REPAIR_PATTERNS = new Map([
-  ["no_wheels", /(?:no|missing|нет|без)\s+(?:the\s+)?(?:wheels?|tires?|tyres?|кол[её]с)/iu],
-  ["square_wheels", /(?:square\s+(?:wheels?|tires?|tyres?)|квадратн\p{L}*\s+кол[её]с)/iu],
-  ["loose_wheel", /(?:(?:loose|unscrewed)\s+(?:wheel|screw|bolt)|(?:винт|болт|гайк)\p{L}*\s+(?:разболтан|ослаб|откру)|колес\p{L}*\s+(?:шатает|болтает))/iu],
-  ["no_engine", /(?:(?:no|missing|broken)\s+engine|engine\s+(?:isn['’]?t|doesn['’]?t)\s+(?:work|start)|(?:нет|без)\s+двигател|двигател\p{L}*\s+не\s+(?:работает|заводится))/iu],
-  ["no_brakes", /(?:(?:no|missing|broken)\s+brakes?|brakes?\s+(?:don['’]?t|do\s+not)\s+work|(?:нет|без)\s+тормоз|тормоз\p{L}*\s+не\s+работ)/iu],
-  ["no_cooling", /(?:cooling|overheat|перегрев|охлажден)/iu],
-  ["no_steering", /(?:(?:no|missing|broken)\s+steering|steering\s+(?:doesn['’]?t|does\s+not)\s+work|(?:нет|без)\s+рул|рул\p{L}*\s+не\s+работ)/iu],
-  ["no_seatbelt", /(?:seat\s?belt|рем(?:ень|ня)\s+безопасност)/iu],
-  ["swapped_pedals", /(?:(?:pedals?|gas|accelerat\p{L}*|brakes?)\s+(?:are\s+)?swapped|перепутан\p{L}*\s+педал)/iu],
-  ["reversed_steering", /(?:(?:reversed|inverted)\s+steering|steering\s+(?:is\s+)?(?:reversed|backwards)|рул\p{L}*\s+(?:наоборот|перепутан)|поворот\p{L}*\s+наоборот)/iu],
-  ["one_way_steering", /(?:(?:only|can\s+only)\s+turn|(?:не\s+)?поворачивает\s+(?:только\s+)?(?:влево|вправо)|только\s+(?:лев|прав))/iu],
-  ["backwards_engine", /(?:(?:engine\s+)?(?:installed|mounted)\s+backwards|двигател\p{L}*\s+(?:задом|наоборот))/iu],
-  ["bad_engine_power", /(?:(?:engine\s+)?(?:too\s+)?(?:weak|powerful)|(?:слаб|мощн)\p{L}*\s+двигател|двигател\p{L}*\s+(?:слишком\s+)?(?:слаб|мощн))/iu],
-  ["stuck_accelerator", /(?:(?:accelerator|gas|pedal)\s+(?:is\s+)?stuck|залип\p{L}*\s+(?:газ|акселератор|педал)|педал\p{L}*\s+газа\s+залип)/iu],
-  ["no_grip", /(?:(?:no|missing)\s+(?:tire\s+)?grip|slip\p{L}*\s+(?:on|like)\s+ice|скольз\p{L}*\s+как\s+на\s+льду|нет\s+сцеплен)/iu],
-  ["sideways_wheels", /(?:(?:wheels?|tires?|tyres?)\s+(?:are\s+)?(?:mounted\s+)?sideways|кол[её]с\p{L}*\s+(?:стоят|установлен)\p{L}*\s+боком)/iu],
-]);
-
 function isCompatible(ids) {
   return INCOMPATIBLE_PAIRS.every(
     (pair) => ![...pair].every((id) => ids.includes(id)),
@@ -154,11 +128,6 @@ function explicitPromptAvoidances(prompt = "") {
     avoided.add("square_wheels");
   }
   return avoided;
-}
-
-export function isGenericRepairRequest(prompt = "") {
-  const normalized = prompt.trim().replace(/[.!?]+$/u, "").trim();
-  return GENERIC_REPAIR_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 function canAdd(selected, candidate, avoided) {
@@ -341,6 +310,7 @@ async function selectWithOpenAI(
   });
 
   if (!response.ok) {
+    console.log(response);
     throw new Error(`OpenAI returned ${response.status}.`);
   }
 
@@ -364,17 +334,6 @@ async function selectWithOpenAI(
   }
 
   return diversifyAssignments(players, byPlayer);
-}
-
-function localRepairs(players) {
-  return Object.fromEntries(players.map((player) => {
-    if (!player.tuningPrompt || isGenericRepairRequest(player.tuningPrompt)) {
-      return [player.id, []];
-    }
-    const repairedIds = player.defectIds.filter((id) =>
-      REPAIR_PATTERNS.get(id)?.test(player.tuningPrompt));
-    return [player.id, repairedIds];
-  }));
 }
 
 async function selectRepairsWithOpenAI(
@@ -430,7 +389,6 @@ async function selectRepairsWithOpenAI(
         cars: players.map((player) => ({
           playerId: player.id,
           tuningPrompt: player.tuningPrompt,
-          genericRequestDetectedByServer: isGenericRepairRequest(player.tuningPrompt),
           currentDefects: player.defectIds.map((id) => DEFECTS.find((item) => item.id === id)),
         })),
       }),
@@ -465,7 +423,6 @@ async function selectRepairsWithOpenAI(
   }
 
   return Object.fromEntries(players.map((player) => {
-    if (isGenericRepairRequest(player.tuningPrompt)) return [player.id, []];
     const current = new Set(player.defectIds);
     const repairedIds = byPlayer.get(player.id).repairedDefectIds.filter((id) => current.has(id));
     return [player.id, repairedIds];
@@ -476,7 +433,7 @@ export function getSelectorName() {
   const model = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   return process.env.LLM_PROVIDER === "openai"
     ? `OpenAI · ${model}`
-    : "Local randomizer";
+    : "Local defects · OpenAI repairs not configured";
 }
 
 export async function selectDefects(players, options = {}) {
@@ -490,16 +447,18 @@ export async function selectDefects(players, options = {}) {
 
 export async function selectRepairs(players, options = {}) {
   const provider = options.provider ?? process.env.LLM_PROVIDER;
-  if (provider === "openai") return selectRepairsWithOpenAI(players, options);
-  return localRepairs(players);
+  if (provider !== "openai") {
+    throw new Error(
+      "Repair selection requires LLM_PROVIDER=openai; the local regex fallback is disabled.",
+    );
+  }
+  return selectRepairsWithOpenAI(players, options);
 }
 
 export const defectTestUtils = {
   diversifyAssignments,
   explicitPromptAvoidances,
-  isGenericRepairRequest,
   isCompatible,
-  localRepairs,
   selectRepairsWithOpenAI,
   selectWithOpenAI,
   validSelection,

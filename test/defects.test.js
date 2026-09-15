@@ -108,26 +108,18 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
   );
 });
 
-test("generic repair requests are rejected and concrete reports fix every named current defect", async () => {
+test("repair selection never falls back to local prompt parsing", async () => {
   const players = [
     {
-      id: "generic",
-      tuningPrompt: "Машина должна быть полностью рабочей",
-      defectIds: ["no_brakes", "no_grip", "reversed_steering"],
-    },
-    {
-      id: "specific",
-      tuningPrompt: "It slips like ice and the brakes do not work",
-      defectIds: ["no_brakes", "no_grip", "reversed_steering"],
+      id: "driver",
+      tuningPrompt: "Fix wheel alignemnt; wheels should be straight, not mounted to the side",
+      defectIds: ["sideways_wheels", "no_brakes"],
     },
   ];
-  const repairs = await selectRepairs(players, { provider: "local" });
 
-  assert.deepEqual(repairs.generic, []);
-  assert.deepEqual(repairs.specific, ["no_brakes", "no_grip"]);
-  assert.equal(
-    defectTestUtils.isGenericRepairRequest("Car should be fully working"),
-    true,
+  await assert.rejects(
+    selectRepairs(players, { provider: "local" }),
+    /requires LLM_PROVIDER=openai/,
   );
 });
 
@@ -145,7 +137,8 @@ test("OpenAI repair selection keeps every current, concrete defect and rejects g
     },
   ];
   let requestBody;
-  const repairs = await defectTestUtils.selectRepairsWithOpenAI(players, {
+  const repairs = await selectRepairs(players, {
+    provider: "openai",
     apiKey: "test-key",
     fetchImpl: async (_url, options) => {
       requestBody = JSON.parse(options.body);
@@ -155,7 +148,7 @@ test("OpenAI repair selection keeps every current, concrete defect and rejects g
         json: async () => ({
           output_text: JSON.stringify({
             assignments: [
-              { playerId: "generic", repairedDefectIds: ["no_brakes"] },
+              { playerId: "generic", repairedDefectIds: [] },
               { playerId: "specific", repairedDefectIds: ["reversed_steering", "no_brakes"] },
             ],
           }),

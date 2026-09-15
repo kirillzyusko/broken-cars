@@ -25,12 +25,13 @@ if (
   throw new Error("OpenAI violated the explicit round-wheel requirement.");
 }
 
-const repairedDefectId = assignments["round-car"][0];
-const repairedDefect = DEFECTS.find((defect) => defect.id === repairedDefectId);
+const repairedDefectIds = assignments["round-car"].slice(0, 2);
+const repairedDefects = repairedDefectIds.map((id) =>
+  DEFECTS.find((defect) => defect.id === id));
 const repairs = await selectRepairs([
   {
     id: "specific",
-    tuningPrompt: `I found this exact problem: ${repairedDefect.label}`,
+    tuningPrompt: `I found these exact problems: ${repairedDefects.map((defect) => defect.label).join("; ")}`,
     defectIds: assignments["round-car"],
   },
   {
@@ -40,10 +41,13 @@ const repairs = await selectRepairs([
   },
 ], { provider: "openai" });
 
-if (repairs.specific !== repairedDefectId) {
-  throw new Error("OpenAI did not repair the specifically reported current defect.");
+if (
+  repairs.specific.length !== repairedDefectIds.length
+  || repairedDefectIds.some((id) => !repairs.specific.includes(id))
+) {
+  throw new Error("OpenAI did not repair every specifically reported current defect.");
 }
-if (repairs.generic !== null) {
+if (repairs.generic.length !== 0) {
   throw new Error("A generic repair request unexpectedly removed a defect.");
 }
 
@@ -53,6 +57,6 @@ console.log(JSON.stringify({
     Object.entries(assignments).map(([id, defectIds]) => [id, defectIds.length]),
   ),
   roundWheelConstraintHonored: true,
-  concreteRepairApplied: repairedDefectId,
+  concreteRepairsApplied: repairedDefectIds,
   genericRepairApplied: false,
 }, null, 2));
