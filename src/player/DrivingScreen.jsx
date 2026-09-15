@@ -65,7 +65,7 @@ function Pad({ control, active, onControl, className = "", children }) {
   );
 }
 
-export function DrivingScreen({ room, me, now, actions }) {
+export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
   const { car } = me;
   const racing = room.phase === "racing";
   const position = positionOf(room, me.id);
@@ -176,6 +176,7 @@ export function DrivingScreen({ room, me, now, actions }) {
 
   useEffect(() => {
     const handleKey = (event, pressed) => {
+      if (pressed && (/INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY/.test(event.target?.tagName) || event.target?.isContentEditable)) return;
       const control = KEY_MAP[event.key];
       if (!control) return;
       event.preventDefault();
@@ -216,7 +217,7 @@ export function DrivingScreen({ room, me, now, actions }) {
       </div>
 
       <Suspense fallback={<div className="ph-drive__scene ph-drive__scene--loading">LOADING TRACK…</div>}>
-        <RaceView room={room} currentPlayerId={me.id} view="driver" className="ph-drive__scene" />
+        <RaceView room={room} currentPlayerId={me.id} view="driver" className="ph-drive__scene" onReady={onSceneReady} />
       </Suspense>
 
       <div className="ph-drive__controls" aria-label="Kart controls">

@@ -50,6 +50,7 @@ function RaceCanvas({
   currentPlayerId = null,
   view = "spectator",
   className = "",
+  onReady,
 }) {
   const canvasRef = useRef(null);
   const sceneRef = useRef(null);
@@ -75,7 +76,7 @@ function RaceCanvas({
         id: `${room.id}:${room.roundNumber}:${room.startsAt}`,
       }
     : null;
-  latestRef.current = { cars, obstacles, currentPlayerId, view, audioActive, startClock };
+  latestRef.current = { cars, obstacles, currentPlayerId, view, audioActive, startClock, onReady };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +106,7 @@ function RaceCanvas({
       syncCars(scene, latestRef.current.cars);
       syncObstacles(scene, latestRef.current.obstacles);
       resize();
+      latestRef.current.onReady?.();
     }).catch((error) => {
       if (cancelled) return;
       setStatus("");
