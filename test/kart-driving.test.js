@@ -380,3 +380,24 @@ test("race progress separates cars before the line and decreases when reversing"
   for (let metres = 28; metres >= 12; metres--) place(front, metres);
   assert.ok(front.distance < ahead - 5, "reversing across checkpoints must lose position");
 });
+
+test("icy tires strongly understeer at speed and cannot bypass grip loss with drift", () => {
+  const normal = kart();
+  normal.heading = 0;
+  normal.velocityX = 0;
+  normal.velocityZ = -10;
+  normal.speed = 10;
+  const icy = structuredClone(normal);
+  icy.defectIds = ["no_grip"];
+  const start = { ...normal.worldPosition };
+  run(normal, { accelerate: true, right: true }, 1);
+  run(icy, { accelerate: true, right: true, drift: true }, 1);
+  assert.ok(icy.heading < normal.heading * 0.25, "ice should greatly widen the turning radius");
+  assert.ok(Math.abs(icy.worldPosition.x - start.x) < Math.abs(normal.worldPosition.x - start.x) * 0.25);
+  assert.ok(icy.worldPosition.z < start.z - 7, "the kart keeps sliding ahead");
+  assert.equal(icy.drifting, false);
+  icy.defectIds = [];
+  const before = icy.heading;
+  run(icy, { accelerate: true, right: true }, 0.5);
+  assert.ok(icy.heading - before > 30, "repair restores responsive turning");
+});
