@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code and claim a seat, and the host starts a shared 15-second car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized modular karts, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering; holding the brake at a standstill reverses. A round ends as soon as the first kart crosses the line, or after three minutes; everyone still on track is placed by distance. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. In the default arcade mode the host starts a rematch with the same cars after each finish. With broken-parts mode enabled, every submitted car receives three or four broken parts before the first race, and after each ride players get 30 seconds to send one message to the garage, which repairs at most one concretely described defect before racing again.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code and claim a seat, and the host starts a shared 15-second car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized modular karts, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering; holding the brake at a standstill reverses. A round ends as soon as the first kart crosses the line, or after three minutes; everyone still on track is placed by distance. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. Every submitted car receives three or four broken parts before the first race, and after each ride players get 30 seconds to send one message to the garage, which repairs at most one concretely described defect before racing again. The session ends once every kart is fully repaired.
 
 ## Run locally
 
@@ -11,13 +11,12 @@ npm run dev
 
 Open `http://localhost:3001` on the host computer. For the demo, connect the host and every phone to the `STARLINK` Wi-Fi access point. The host screen displays that network name, and the QR code automatically uses the first LAN IPv4 address. If the QR code chooses the wrong network adapter, set `PUBLIC_URL` before starting the server.
 
-Broken-parts mode is currently disabled by default so the basic race can be tested without simulated failures. To restore that experimental mode, set `ENABLE_BROKEN_PARTS=true`. Its default defect selector is local and needs no account or internet access. To let OpenAI interpret player requests in that mode, create a gitignored `.env` file:
+The default defect selector is local and needs no account or internet access. To let OpenAI interpret player requests, create a gitignored `.env` file:
 
 ```dotenv
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your_key
 OPENAI_MODEL=gpt-5-nano
-ENABLE_BROKEN_PARTS=true
 ```
 
 The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed. Car prompts are sent to OpenAI only when `LLM_PROVIDER=openai` is enabled. Explicit requirements are treated as hard constraints, so a player asking for round wheels cannot receive square or missing wheels. The server also minimizes repeated defects across players in the same room. If the API fails, the build stays open and the host sees an error instead of silently assigning potentially conflicting defects.
@@ -37,7 +36,7 @@ The screens follow the Claude Design handoff: a sticker-card arcade look with th
 - `src/lib/` holds UI-only game logic: seat colours, cross-round standings and points (kept in `sessionStorage`, because the server only carries the current race), each player's prompt history, and `shouts.js`, which turns a defect the player runs into during a race into a driver speech bubble.
 - `src/styles/` has the design tokens plus one stylesheet per surface. `src/styles.css` is the older stylesheet, loaded only by the map preview and test pages under `/map`.
 
-Holding the brake slows a rolling kart to a stop and then reverses it (a backwards engine makes that the way forward). In arcade mode (the default) no parts are missing, the driver only remarks on collisions, and the host races the same karts again after each sprint; the final podium shows after four sprints. Defects are never listed on screen. A phone reveals a part only through the driver's speech bubble once the player uses the affected control, and never within the first ten seconds after that player's first input in a round, and the TV mirrors public car state (overheating, a stuck throttle, finishing) inside that player's camera quadrant. The shout lines use the same wording the repair selector understands, so repeating what the driver said fixes the part.
+Holding the brake slows a rolling kart to a stop and then reverses it (a backwards engine makes that the way forward). Defects are never listed on screen. A phone reveals a part only through the driver's speech bubble once the player uses the affected control, and never within the first ten seconds after that player's first input in a round, and the TV mirrors public car state (overheating, a stuck throttle, finishing) inside that player's camera quadrant. The shout lines use the same wording the repair selector understands, so repeating what the driver said fixes the part.
 
 ## Architecture
 
@@ -95,6 +94,8 @@ The sandbox has no room or lap timer. The collapsible Dev controls panel changes
 Open [the graphics test level](http://localhost:3001/map/graphics) for four fixed cameras in a full-screen 2×2 grid. Top left shows the island, top right the start line, bottom left the mountain road at driver height, and bottom right the coast. The page has no HUD, controls, cars, or room connection. All views share one map and the race settings in `src/race-lighting.js`, `src/race-water.js`, and `src/race-skybox.js`. Camera positions live in `src/map-graphics-runtime.js`.
 
 Open [the map preview](http://localhost:3001/map) to explore the island without creating a room. Use the camera menu for a whole-island view, broadcast camera, chase camera, or driver view. The lap slider lets you inspect any part of the track.
+
+The home screen shows the same island behind its card as a looping attract reel: a high orbit, a helicopter pass down the start straight, a crane shot from the far end, a second pass through the back half of the lap, and a closing orbit. Shots cut hard like a broadcast intro and low shots move in front of any scenery that blocks the view. The reel lives in `src/home-camera.js` and runs through the race renderer's `cinematic` camera mode. Viewers who prefer reduced motion get a still establishing frame.
 
 The game loads `public/maps/corsica-gp/visual.glb` and `collision.glb` through PlayCanvas's container loader. The visual export keeps all 3,668 authored objects, including sponsor textures. Repeated scenery uses 284 GPU batches, grouped into 32-meter cells with bounds for camera culling. The visual GLB is about 2.2 MB; the collision GLB is about 3.2 MB. Textures are embedded and Ammo runs from `public/physics/`, so map loading needs no external CDN.
 

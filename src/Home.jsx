@@ -1,7 +1,22 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import BackgroundMusic from "./BackgroundMusic.jsx";
 import { GAME_NAME } from "./config.js";
 import { CheckerStrip, Pill, StickerButton } from "./components/primitives.jsx";
+
+// The island behind the card is the full race renderer playing its attract reel.
+const RaceView = lazy(() => import("./RaceView.jsx"));
+const BACKDROP_ROOM = Object.freeze({ id: "home", phase: "home", players: [], obstacles: [] });
+
+function HomeBackdrop() {
+  const [ready, setReady] = useState(false);
+  return (
+    <div className={`home__backdrop${ready ? " home__backdrop--ready" : ""}`} aria-hidden="true">
+      <Suspense fallback={null}>
+        <RaceView room={BACKDROP_ROOM} view="cinematic" className="home__island" onReady={() => setReady(true)} />
+      </Suspense>
+    </div>
+  );
+}
 
 export function Home() {
   const [creating, setCreating] = useState(false);
@@ -25,10 +40,9 @@ export function Home() {
 
   return (
     <main className="home">
+      <HomeBackdrop />
       <BackgroundMusic />
       <CheckerStrip className="home__strip" />
-      <div className="home__circle" aria-hidden="true" />
-      <div className="home__ground" aria-hidden="true" />
       <section className="home__card">
         <Pill tone="red" className="home__pill">Party mode · phones vs. the garage</Pill>
         <h1 className="home__wordmark">{GAME_NAME}</h1>
@@ -39,7 +53,6 @@ export function Home() {
           {creating ? "OPENING THE GARAGE…" : "OPEN A ROOM"}
         </StickerButton>
         {error ? <p className="home__error">{error}</p> : null}
-        <StickerButton as="a" tone="cream" className="home__explore" href="/map">EXPLORE CORSICA GP</StickerButton>
         <p className="home__hint">
           Put this screen on the TV.
           <br />

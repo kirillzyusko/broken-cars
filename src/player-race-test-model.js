@@ -64,7 +64,7 @@ export function createPlayerRaceTest(world) {
       return {
         id: "LOCAL-TEST", phase: startsAt === null || now < startsAt ? "countdown" : "racing",
         roundNumber: 1, startsAt, serverNow: now, receivedAt: now,
-        trackLength: TRACK_LENGTH_METERS, defectsEnabled: true, obstacles: [],
+        trackLength: TRACK_LENGTH_METERS, obstacles: [],
         players: [{ id: TEST_PLAYER_ID, name: "Test driver", color: "blue", named: true, connected: true,
           car: { ...car, worldPosition: { ...car.worldPosition } } }],
       };

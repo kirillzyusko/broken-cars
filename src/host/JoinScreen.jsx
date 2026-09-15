@@ -39,7 +39,7 @@ export function JoinScreen({ room, roomId, joinUrl, hostAction }) {
             <b>{joinUrl}</b>
             <br />
             <span className="tv-join__url-muted">
-              {room.defectsEnabled === false ? "arcade mode" : `garage · ${room.selectorName}`}
+              garage · {room.selectorName}
             </span>
           </p>
         </div>

@@ -1,6 +1,6 @@
 import { TRACK_NAME } from "../config.js";
 import { kartNameFor, ordinal } from "../lib/format.js";
-import { arcadeMode, roundsIn, tally } from "../lib/standings.js";
+import { roundsIn, tally } from "../lib/standings.js";
 import { Avatar, CheckerStrip, Pill, StickerButton } from "../components/primitives.jsx";
 
 const PODIUM_HEIGHTS = ["100%", "86%", "74%", "66%"];
@@ -21,9 +21,7 @@ export function FinalScreen({ room, history, hostAction = null }) {
           </Pill>
           <h1 className="tv-final__title">{winner ? `${winner.name.toUpperCase()} WINS` : "RACE OVER"}</h1>
           <p className="tv-final__sub">
-            {arcadeMode(room)
-              ? `${rounds} ${rounds === 1 ? "sprint" : "sprints"}, same karts, most points wins.`
-              : `${rounds} ${rounds === 1 ? "sprint" : "sprints"}, one garage, most points wins.`}
+            {rounds} {rounds === 1 ? "sprint" : "sprints"}, one garage, most points wins.
           </p>
         </header>
 

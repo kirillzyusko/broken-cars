@@ -1,11 +1,10 @@
 import { formatRaceResult, ordinal } from "../lib/format.js";
-import { arcadeMode, positionOf, racePositions, sessionOver, tally } from "../lib/standings.js";
+import { positionOf, racePositions, sessionOver, tally } from "../lib/standings.js";
 import { Pill } from "../components/primitives.jsx";
 
 export function RoundDoneScreen({ room, me, history }) {
   const order = racePositions(room);
   const over = sessionOver(room);
-  const arcade = arcadeMode(room);
   const rows = tally(history, room);
   const winner = rows[0];
   const pointsById = new Map(rows.map((player) => [player.id, player.points]));
@@ -23,10 +22,8 @@ export function RoundDoneScreen({ room, me, history }) {
     card = {
       tone: "",
       label: "THAT'S THE SESSION",
-      text: arcade ? "Four sprints down. Thanks for driving." : "That's the session. Thanks for driving.",
+      text: "That's the session. Thanks for driving.",
     };
-  } else if (arcade && me.car) {
-    card = { tone: "", label: "SAME KART, NEXT SPRINT", text: "The host starts the rematch. Points carry over." };
   } else if (me.car) {
     card = { tone: "", label: "PIT STOP NEXT", text: "The host opens the pit. One message per kart." };
   } else {
@@ -64,7 +61,7 @@ export function RoundDoneScreen({ room, me, history }) {
       </section>
 
       <p className="ph-footer-bar">
-        {over ? "Thanks for driving" : arcade ? "Waiting for the host to restart" : "Waiting for the host to open the pit"}
+        {over ? "Thanks for driving" : "Waiting for the host to open the pit"}
       </p>
     </main>
   );

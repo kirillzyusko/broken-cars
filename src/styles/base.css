@@ -292,27 +292,46 @@ a { color: inherit; }
   overflow: hidden auto;
   background: var(--sky);
 }
-.home__strip { position: absolute; top: 0; right: 0; left: 0; }
-.home__ground { position: absolute; right: 0; bottom: 0; left: 0; height: 18vh; background: var(--grass); }
-.home__circle {
-  position: absolute;
-  left: -140px;
-  bottom: -160px;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  background: #fff;
-  opacity: 0.28;
+/* The island behind the card is the live race renderer on its attract reel.
+   It fades in once loaded; until then the sky colour stands in. */
+.home__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 1.8s ease;
+  pointer-events: none;
 }
+.home__backdrop--ready { opacity: 1; }
+/* A wide screen keeps the card on the left; the reel frames the island to its right. */
+@media (min-aspect-ratio: 6/5) and (min-width: 960px) {
+  .home { align-items: flex-start; padding-left: clamp(40px, 7vw, 150px); }
+}
+.home__island { height: 100%; }
+.home__island .race-view__status, .home__island .race-view__error { display: none; }
+.home .music-toggle { z-index: 2; }
+.home__strip { position: absolute; top: 0; right: 0; left: 0; z-index: 1; }
 .home__card {
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 22px;
   width: min(600px, 100%);
+  padding: 36px 40px;
+  border: 4px solid var(--ink);
+  border-radius: 28px;
+  background: rgba(16, 51, 63, 0.68);
+  box-shadow: 8px 8px 0 var(--ink);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
 }
-.home__pill { font-size: 13px; padding: 8px 16px; letter-spacing: 0.18em; }
+.home__pill { font-size: 13px; padding: 8px 16px; letter-spacing: 0.18em; white-space: normal; text-align: center; line-height: 1.4; }
+@media (max-width: 560px) {
+  .home { padding: 64px 16px; }
+  .home__card { padding: 26px 22px; box-shadow: 6px 6px 0 var(--ink); }
+}
 .home__wordmark {
   font-family: var(--display);
   font-weight: 800;
@@ -322,11 +341,10 @@ a { color: inherit; }
   color: var(--cream);
   text-shadow: 5px 5px 0 var(--ink);
 }
-.home__lede { max-width: 30ch; font-size: clamp(18px, 2.4vw, 26px); font-weight: 600; line-height: 1.4; color: var(--deep-sky-ink); }
+.home__lede { max-width: 30ch; font-size: clamp(18px, 2.4vw, 26px); font-weight: 600; line-height: 1.4; color: var(--cream); }
 .home__button { padding: 20px 30px; font-size: 26px; }
-.home__explore { padding: 14px 22px; font-size: 18px; }
-.home__hint { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; line-height: 1.7; color: var(--ink); }
-.home__error { font-weight: 800; color: var(--red); }
+.home__hint { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; line-height: 1.7; color: rgba(250, 247, 240, 0.85); }
+.home__error { font-weight: 800; color: var(--red-active); }
 
 .simple-page {
   display: grid;

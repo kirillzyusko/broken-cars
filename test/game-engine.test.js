@@ -17,6 +17,7 @@ import {
   startingGridWorldOffset,
   obstaclePositionToWorld,
 } from "../shared/race-config.js";
+import { startRepairedRace } from "./helpers/repaired-race.js";
 
 test("players wait for the host before the shared prompt minute starts", () => {
   const engine = new GameEngine({ buildDurationMs: 100 });
@@ -79,7 +80,7 @@ test("host cannot start early and invalid host credentials are rejected", async 
   );
 });
 
-test("standard racing skips defects and server-authoritative controls move the car", async () => {
+test("every car leaves the garage broken and server-authoritative controls move it", async () => {
   const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -91,7 +92,7 @@ test("standard racing skips defects and server-authoritative controls move the c
     room.hostToken,
     async () => {
       selectorCalled = true;
-      return { "player-1": ["no_engine", "no_brakes", "no_steering"] };
+      return { "player-1": ["no_brakes", "no_seatbelt", "no_steering"] };
     },
     1_002,
   );
@@ -104,10 +105,10 @@ test("standard racing skips defects and server-authoritative controls move the c
   for (let now = 2_050; now <= 5_000; now += 50) engine.tick(now);
 
   const car = room.players.get("player-1").car;
-  assert.equal(selectorCalled, false);
-  assert.deepEqual(car.defectIds, []);
+  assert.equal(selectorCalled, true);
+  assert.deepEqual(car.defectIds, ["no_brakes", "no_seatbelt", "no_steering"]);
   assert.ok(car.speed > 0);
-  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected arcade-kart acceleration, received ${car.speed}`);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected full acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
   assert.ok(car.distance < TRACK_LENGTH_METERS);
   assert.ok(car.speed <= STANDARD_MAX_SPEED_MPS, `expected believable acceleration, received ${car.speed}`);
@@ -123,7 +124,7 @@ test("steering input cannot move or rotate a stationary car", async () => {
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Bicycle-model box", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -150,7 +151,7 @@ test("standard kart holds its chosen heading with strong grip and no jumping", a
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Grip-test kart", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -213,36 +214,6 @@ test("two players see synchronized acceleration and opposite steering movement",
   assert.ok(hostCars[1].worldPosition.x > drivingSpawn(1).x);
   assert.ok(hostCars.every((player, index) => player.worldPosition.z < drivingSpawn(index).z));
   assert.deepEqual(playerCars, hostCars);
-  assert.equal(engine.serialize(room).defectsEnabled, false);
-});
-
-test("the host can restart a completed standard race with the same cars", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, startCountdownMs: 5 });
-  const room = engine.createRoom(1_000);
-  engine.joinPlayer(room.id, "player-1", 1_000);
-  engine.startPrompting(room.id, room.hostToken, 1_000);
-  engine.submitPrompt(room.id, "player-1", "Reusable box", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
-
-  const car = room.players.get("player-1").car;
-  car.distance = 400;
-  car.speed = 30;
-  car.lane = 0.8;
-  room.phase = "finished";
-  engine.restartRace(room.id, room.hostToken, 2_000);
-
-  assert.equal(room.phase, "countdown");
-  assert.equal(room.roundNumber, 2);
-  assert.equal(room.startsAt, 2_005);
-  assert.equal(car.distance, 0);
-  assert.equal(car.speed, 0);
-  assert.equal(car.velocityX, 0);
-  assert.equal(car.velocityZ, 0);
-  assert.equal(car.lane, 0);
-  assert.equal(car.heading, 0);
-  assert.equal(car.steeringAngle, 0);
-  assert.equal(car.angularVelocity, 0);
-  assert.equal(car.massKg, CAR_MASS_KG);
 });
 
 test("a car collides with a static barrier instead of passing through it", async () => {
@@ -251,7 +222,7 @@ test("a car collides with a static barrier instead of passing through it", async
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Crash-test box", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -292,7 +263,7 @@ test("rear-end car collisions exchange momentum and separate both cars", async (
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "rear-car", "Rear box", 1_000);
   engine.submitPrompt(room.id, "front-car", "Front box", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -337,7 +308,7 @@ test("a glancing equal-mass impact transfers lateral velocity and spin", async (
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "striking-car", "Striking box", 1_000);
   engine.submitPrompt(room.id, "target-car", "Target box", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -372,8 +343,8 @@ test("a glancing equal-mass impact transfers lateral velocity and spin", async (
   assert.ok(target.worldPosition.x > targetXAtImpact, "the transferred vector should carry the target sideways");
 });
 
-test("a car with no engine cannot accelerate when broken-parts mode is enabled", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true });
+test("a car with no engine cannot accelerate", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -395,7 +366,7 @@ test("a car with no engine cannot accelerate when broken-parts mode is enabled",
 });
 
 test("swapped pedals, reversed steering, stuck acceleration, and backwards engines affect driving", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true });
+  const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   const defectIds = [
     "swapped_pedals",
@@ -465,7 +436,7 @@ test("room snapshots advertise the current client protocol", () => {
   const room = engine.createRoom();
   const state = engine.serialize(room);
   assert.equal(state.protocolVersion, 6);
-  assert.equal(state.defectsEnabled, false);
+  assert.equal("defectsEnabled" in state, false);
   assert.equal(state.buildDurationMs, 15_000);
   assert.equal(state.tuningDurationMs, 30_000);
   assert.deepEqual(state.obstacles, TRACK_OBSTACLES);
@@ -509,7 +480,6 @@ test("each tuning round permanently repairs every specifically reported current 
     tuningDurationMs: 10,
     startCountdownMs: 5,
     maxRaceDurationMs: 100,
-    defectsEnabled: true,
   });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -559,7 +529,6 @@ test("the engine applies the LLM decision without locally parsing the prompt", a
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
-    defectsEnabled: true,
   });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -601,7 +570,6 @@ test("host snapshots never reveal private tuning prompts", async () => {
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
-    defectsEnabled: true,
   });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -681,7 +649,7 @@ test("holding the brake stops a rolling car and then reverses it", async () => {
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Reversible wagon", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;
@@ -714,7 +682,7 @@ test("holding the brake stops a rolling car and then reverses it", async () => {
 });
 
 test("a car without brakes cannot reverse either", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true, drivingWorld: null });
+  const engine = new GameEngine({ buildDurationMs: 1, drivingWorld: null });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -744,7 +712,7 @@ async function threeKartRace() {
   for (const id of ids) engine.joinPlayer(room.id, id, 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   for (const id of ids) engine.submitPrompt(room.id, id, "Kart", 1_000);
-  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  await startRepairedRace(engine, room);
   room.startsAt = 2_000;
   room.lastTickAt = 2_000;
   room.raceEndsAt = 100_000;

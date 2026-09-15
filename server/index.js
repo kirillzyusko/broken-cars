@@ -21,7 +21,6 @@ const game = createGame({
   tuningDurationMs: durationFromEnvironment("TUNING_DURATION_MS"),
   startCountdownMs: durationFromEnvironment("START_COUNTDOWN_MS"),
   maxRaceDurationMs: durationFromEnvironment("MAX_RACE_DURATION_MS"),
-  defectsEnabled: process.env.ENABLE_BROKEN_PARTS === "true",
 });
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -147,9 +146,6 @@ sockets.on("connection", (socket) => {
         broadcast(roomId);
       } else if (message.type === "start_tuning" && role === "host") {
         game.startTuning(roomId, message.hostToken);
-        broadcast(roomId);
-      } else if (message.type === "restart_race" && role === "host") {
-        game.restartRace(roomId, message.hostToken);
         broadcast(roomId);
       } else if (message.type === "start_next_race" && role === "host") {
         const room = game.requireRoom(roomId);

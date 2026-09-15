@@ -68,7 +68,6 @@ export function useGameSocket({ roomId, role, hostToken, clientId }) {
     startBuild: () => send({ type: "start_prompting", hostToken }),
     submitCarPrompt: (prompt) => send({ type: "submit_prompt", prompt }),
     startRace: () => send({ type: "start_race", hostToken }),
-    restartRace: () => send({ type: "restart_race", hostToken }),
     startTuning: () => send({ type: "start_tuning", hostToken }),
     submitRepair: (prompt) => send({ type: "submit_tuning_prompt", prompt }),
     startNextRace: () => send({ type: "start_next_race", hostToken }),
