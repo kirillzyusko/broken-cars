@@ -42,6 +42,8 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     speed: player.car.speed,
     throttle: player.car.throttle,
     braking: player.car.braking ?? false,
+    drifting: player.car.drifting ?? false,
+    offRoad: player.car.offRoad ?? false,
     velocityX: player.car.velocityX ?? 0,
     velocityZ: player.car.velocityZ ?? player.car.speed,
     heading: player.car.heading ?? 0,

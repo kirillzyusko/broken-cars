@@ -320,3 +320,45 @@ test("sideways wheels drive across the chassis, brake, reverse and repair", () =
   assert.ok(car.velocityX * Math.sin(heading) - car.velocityZ * Math.cos(heading) > 1);
   assert.ok(Math.abs(car.velocityX * Math.cos(heading) + car.velocityZ * Math.sin(heading)) < 1e-6);
 });
+
+test("drift needs speed and steering, carries slip, and releases back into grip", () => {
+  const car = kart();
+  run(car, { drift: true, right: true }, 0.5);
+  assert.equal(car.drifting, false);
+  run(car, { accelerate: true }, 3);
+  run(car, { accelerate: true, drift: true }, 0.1);
+  assert.equal(car.drifting, false, "Space alone does not start a slide");
+  run(car, { accelerate: true, drift: true, right: true }, 0.5);
+  const lateral = () => {
+    const angle = car.heading * Math.PI / 180;
+    return Math.abs(car.velocityX * Math.cos(angle) + car.velocityZ * Math.sin(angle));
+  };
+  assert.equal(car.drifting, true);
+  assert.ok(lateral() > 1, "momentum should lag behind the turning chassis");
+  run(car, { accelerate: true }, 0.5);
+  assert.equal(car.drifting, false);
+  assert.ok(lateral() < 0.01, "releasing Space restores grip");
+  run(car, { brake: true, drift: true, right: true }, 0.1);
+  assert.equal(car.drifting, false);
+  assert.equal(car.braking, true);
+});
+
+test("drifting carries speed through a tighter corner and recovers without stalling", () => {
+  const normal = kart();
+  run(normal, { accelerate: true }, 3);
+  const sliding = structuredClone(normal);
+  const entrySpeed = sliding.speed;
+  run(normal, { accelerate: true, right: true }, 1);
+  run(sliding, { accelerate: true, right: true, drift: true }, 1);
+  assert.ok(sliding.heading > normal.heading + 15, "drift should turn through the corner faster");
+  assert.ok(sliding.speed > entrySpeed * 0.9, "drift should carry entry speed");
+  run(sliding, { accelerate: true, right: true, drift: true }, 2);
+  assert.ok(sliding.speed > entrySpeed * 0.9, "a sustained slide must not bog down");
+  assert.ok(Math.abs(sliding.driftSlip) <= 0.42, "slip stays controllable");
+  const exitSpeed = sliding.speed;
+  run(sliding, { accelerate: true }, 0.5);
+  assert.ok(sliding.speed > exitSpeed * 0.95, "recovery preserves momentum");
+  assert.ok(Math.abs(sliding.driftSlip) < 0.001);
+  run(sliding, { accelerate: true, left: true, drift: true }, 0.5);
+  assert.ok(sliding.driftSlip > 0, "the next corner can go the other way");
+});

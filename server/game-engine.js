@@ -44,6 +44,7 @@ const EMPTY_CONTROLS = Object.freeze({
   left: false,
   right: false,
   stop: false,
+  drift: false,
 });
 const DEFECT_MAP = new Map(DEFECTS.map((defect) => [defect.id, defect]));
 
@@ -831,6 +832,7 @@ export class GameEngine {
       left: controls.left === true,
       right: controls.right === true,
       stop: controls.stop === true,
+      drift: controls.drift === true,
     };
   }
 

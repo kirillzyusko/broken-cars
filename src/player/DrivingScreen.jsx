@@ -15,6 +15,7 @@ const EMPTY_CONTROLS = Object.freeze({
   left: false,
   right: false,
   stop: false,
+  drift: false,
 });
 
 const KEY_MAP = {
@@ -22,7 +23,7 @@ const KEY_MAP = {
   w: "accelerate",
   ArrowDown: "brake",
   s: "brake",
-  " ": "stop",
+  " ": "drift",
   ArrowLeft: "left",
   a: "left",
   ArrowRight: "right",

@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { createTireMarks } from "./tire-marks.js";
 import { createStartLights } from "./start-lights.js";
 import { raceStartSignal } from "../shared/race-start.js";
 import { createKartAudio } from "./kart-audio.js";
@@ -44,7 +45,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   app.start();
   const main = createCameraState(camera, view, currentPlayerId);
   const scene = {
-    audio: createKartAudio(), audioActive: true,
+    audio: createKartAudio(), audioActive: true, tireMarks: createTireMarks(app),
     reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     app, camera, cameraFrame, main, split: null, copyShader: null,
     carStates: new Map(), obstacleStates: new Map(), materials: [],
@@ -60,6 +61,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     setSplitScreen(feeds) { setSplitScreen(scene, feeds); },
     destroy() {
       scene.audio.dispose();
+      scene.tireMarks.destroy();
       scene.startLights?.destroy();
       destroySplitViews(scene);
       cameraFrame.destroy();
@@ -131,6 +133,7 @@ export function syncCars(scene, cars) {
       state.lane = car.lane;
       state.heading = car.heading;
       state.wheelPose = null;
+      state.tireContacts = null;
       scene.cameraPlaced = false;
     }
     state.car = car;
@@ -204,8 +207,28 @@ function updateScene(scene, dt) {
     state.visual.updateMotion(Math.abs(travel) < 2 ? travel : 0, (start, end) =>
       scene.app.systems.rigidbody.raycastFirst(new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
         { filterCollisionMask: pc.BODYGROUP_STATIC }));
+    const marking = (state.car.drifting || state.car.braking) && state.car.speed > 1
+      && !state.car.offRoad && !state.car.defectIds?.includes("no_wheels");
+    if (marking) {
+      const contacts = ["RL", "RR"].map((slot) => {
+        const wheel = state.visual.entity.findByName(`Part.Wheel.${slot}`);
+        const center = wheel.getPosition();
+        const hit = scene.app.systems.rigidbody.raycastFirst(
+          new pc.Vec3(center.x, center.y + 0.15, center.z),
+          new pc.Vec3(center.x, center.y - 0.55, center.z),
+          { filterCollisionMask: pc.BODYGROUP_STATIC });
+        return hit && hit.normal.y > 0.7 ? hit.point.clone() : null;
+      });
+      state.tireContacts ??= contacts;
+      contacts.forEach((point, i) => {
+        const old = state.tireContacts[i];
+        if (!point || !old || Math.hypot(point.x - old.x, point.z - old.z) > 1
+          || scene.tireMarks.segment(old, point)) state.tireContacts[i] = point;
+      });
+    } else state.tireContacts = null;
     state.wheelPose = { x: pose.x, z: pose.z };
   }
+  scene.tireMarks.update(dt);
   const start = scene.startClock;
   const now = start ? start.serverNow + performance.now() - start.receivedAt : 0;
   const signal = raceStartSignal(start?.startsAt, now);
