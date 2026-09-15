@@ -16,7 +16,8 @@ export { TRACK_LENGTH_METERS };
 export const BUILD_DURATION_MS = 15_000;
 export const TUNING_DURATION_MS = 30_000;
 export const START_COUNTDOWN_MS = 5_000;
-export const MAX_RACE_DURATION_MS = 90_000;
+// A round ends as soon as the first kart finishes, or after three minutes.
+export const MAX_RACE_DURATION_MS = 180_000;
 export { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 export const CAR_MASS_KG = 1_000;
 
@@ -919,9 +920,17 @@ export class GameEngine {
         room.finishers.push(player.id);
       }
 
-      const allFinished = racers.every((player) => player.car.finishedAtMs !== null);
-      if (allFinished || now >= room.raceEndsAt) {
+      // The round ends with the first finisher or when time runs out. Everyone
+      // still on track is placed by how far they got, so the standings and the
+      // points separate them instead of sharing one DNF.
+      if (room.finishers.length > 0 || now >= room.raceEndsAt) {
         room.phase = "finished";
+        const onTrack = racers
+          .filter((player) => player.car.finishedAtMs === null)
+          .sort((a, b) => b.car.distance - a.car.distance);
+        onTrack.forEach((player, index) => {
+          player.car.rank = room.finishers.length + index + 1;
+        });
         for (const player of racers) player.controls = { ...EMPTY_CONTROLS };
       }
       changedRooms.push(room.id);

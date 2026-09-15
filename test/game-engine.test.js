@@ -730,3 +730,44 @@ test("a car without brakes cannot reverse either", async () => {
   assert.ok(car.velocityZ <= 0, "no brake pedal means no reverse gear");
   assert.ok(car.speed < 0.5);
 });
+
+async function threeKartRace() {
+  const engine = new GameEngine({ buildDurationMs: 1, drivingWorld: null });
+  const room = engine.createRoom(1_000);
+  const ids = ["player-1", "player-2", "player-3"];
+  for (const id of ids) engine.joinPlayer(room.id, id, 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  for (const id of ids) engine.submitPrompt(room.id, id, "Kart", 1_000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  room.startsAt = 2_000;
+  room.lastTickAt = 2_000;
+  room.raceEndsAt = 100_000;
+  engine.tick(2_000);
+  assert.equal(room.phase, "racing");
+  const cars = ids.map((id) => room.players.get(id).car);
+  // Park every kart past its last gate so lap progress leaves the distances alone.
+  const park = (distances) => cars.forEach((car, index) => Object.assign(car, { nextGate: 10_000, distance: distances[index] }));
+  return { engine, room, cars, park };
+}
+
+test("the round ends as soon as the first kart finishes and the rest are placed by distance", async () => {
+  const { engine, room, cars, park } = await threeKartRace();
+  park([120, TRACK_LENGTH_METERS, 300]);
+  engine.tick(2_050);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
+  assert.deepEqual(cars.map((car) => car.finishedAtMs), [null, 50, null]);
+  assert.deepEqual(room.finishers, ["player-2"]);
+});
+
+test("when time runs out nobody has finished but everyone is still placed", async () => {
+  const { engine, room, cars, park } = await threeKartRace();
+  park([120, 300, 200]);
+  engine.tick(50_000);
+  assert.equal(room.phase, "racing");
+  assert.deepEqual(cars.map((car) => car.rank), [null, null, null]);
+  engine.tick(100_000);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
+  assert.ok(cars.every((car) => car.finishedAtMs === null));
+});

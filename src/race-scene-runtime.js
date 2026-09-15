@@ -9,33 +9,57 @@ import { createRaceWater } from "./race-water.js";
 import { createKartVisual, loadKartAssets } from "./kart-visual.js";
 import { setupRaceLighting, setupContactShadows } from "./race-lighting.js";
 import { frontAxleWorldPosition, carWorldTransform, smoothingFactor } from "./race-scene-model.js";
+import { cellPixelRect, splitScreenViews } from "./split-screen.js";
 import { CAR_SIZE_WORLD, CAR_FRONT_AXLE_OFFSET_WORLD } from "../shared/race-config.js";
 import track from "./corsica-track.json" with { type: "json" };
+
+function cameraOptions() {
+  return {
+    clearColor: new pc.Color(0.59, 0.78, 0.85), nearClip: 0.08, farClip: 650,
+    fov: 62, toneMapping: pc.TONEMAP_NEUTRAL, gammaCorrection: pc.GAMMA_SRGB,
+  };
+}
+
+// What a camera follows and how it was last placed. The direct camera keeps
+// one; a split screen keeps one per feed so every chase camera eases on its own.
+function createCameraState(camera, mode, followId, { exclusive = false } = {}) {
+  return { camera, mode, followId, exclusive, chase: null, placed: false, followKey: null, aspect: null };
+}
 
 export async function createRaceScene(canvas, { view, currentPlayerId, onStatus, isCancelled }) {
   onStatus("Loading physics…");
   await loadPhysics();
   if (isCancelled()) return null;
   const app = new pc.Application(canvas, { graphicsDeviceOptions: { alpha: false, antialias: true } });
-  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio, 1.5);
+  const device = app.graphicsDevice;
+  device.maxPixelRatio = Math.min(window.devicePixelRatio, 1.5);
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
   setupRaceLighting(app);
   const camera = new pc.Entity("Race camera");
-  camera.addComponent("camera", {
-    clearColor: new pc.Color(0.59, 0.78, 0.85), nearClip: 0.08, farClip: 650,
-    fov: 62, toneMapping: pc.TONEMAP_NEUTRAL, gammaCorrection: pc.GAMMA_SRGB,
-  });
+  camera.addComponent("camera", cameraOptions());
   app.root.addChild(camera);
   const cameraFrame = setupContactShadows(app, camera);
   app.start();
+  const main = createCameraState(camera, view, currentPlayerId);
   const scene = {
     audio: createKartAudio(), audioActive: true,
-    app, camera, cameraFrame, view, currentPlayerId, carStates: new Map(), obstacleStates: new Map(), materials: [],
-    map: null, skybox: null, water: null, kartAssets: null, cameraPlaced: false,
+    app, camera, cameraFrame, main, split: null, copyShader: null,
+    carStates: new Map(), obstacleStates: new Map(), materials: [],
+    map: null, skybox: null, water: null, kartAssets: null,
+    // The direct camera keeps its plain properties for the preview and sandbox pages.
+    get view() { return main.mode; },
+    set view(mode) { main.mode = mode; },
+    get currentPlayerId() { return main.followId; },
+    set currentPlayerId(id) { main.followId = id; },
+    get cameraPlaced() { return main.placed; },
+    set cameraPlaced(placed) { for (const state of cameraStates(scene)) state.placed = placed; },
+    /** `feeds`: `[{ key, playerId }]` in screen order, or null for the single direct camera. */
+    setSplitScreen(feeds) { setSplitScreen(scene, feeds); },
     destroy() {
       scene.audio.dispose();
       scene.startLights?.destroy();
+      destroySplitViews(scene);
       cameraFrame.destroy();
       app.scene.skybox = null;
       scene.skybox?.destroy();
@@ -43,9 +67,12 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
       // app.destroy() their teardown throws on the destroyed device.
       scene.water?.destroy();
       scene.materials.forEach((m) => m.destroy());
+      scene.copyShader?.destroy();
       app.destroy();
     },
   };
+  device.on("resizecanvas", () => layoutSplitViews(scene));
+  app.on("postrender", () => presentSplitViews(scene));
   try {
     onStatus("Loading Corsica GP…");
     scene.skybox = await loadRaceSkybox(app, isCancelled);
@@ -180,49 +207,62 @@ function updateScene(scene, dt) {
   const signal = raceStartSignal(start?.startsAt, now);
   scene.startLights?.update(signal);
   scene.audio.startSignal(start?.id, signal);
-  updateCamera(scene, dt);
+  updateCameras(scene, dt);
+  const listener = scene.split?.views[0]?.state.camera ?? scene.camera;
   const cars = [...scene.carStates.values()].map((state) => ({ ...state.car, position: state.pose }));
-  scene.audio.update(cars, scene.currentPlayerId, { yaw: scene.camera.getEulerAngles().y }, dt, scene.audioActive);
+  scene.audio.update(cars, scene.currentPlayerId, { yaw: listener.getEulerAngles().y }, dt, scene.audioActive);
 }
 
+// ---------- Cameras ----------
+
 const routeCenter = track.points.reduce((a, p) => ({ x: a.x + p[0] / track.points.length, z: a.z + p[2] / track.points.length }), { x: 0, z: 0 });
-function updateCamera(scene, dt) {
-  const driver = scene.carStates.get(scene.currentPlayerId);
+
+function cameraStates(scene) {
+  return scene.split ? scene.split.views.map((view) => view.state) : [scene.main];
+}
+
+function updateCameras(scene, dt) {
+  const raycast = (start, end) => scene.app.systems.rigidbody.raycastFirst(
+    new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
+    { filterCollisionMask: pc.BODYGROUP_STATIC },
+  );
+  for (const state of cameraStates(scene)) placeCamera(scene, state, dt, raycast);
+}
+
+function placeCamera(scene, state, dt, raycast) {
+  const { camera } = state;
+  const driver = state.followId ? scene.carStates.get(state.followId) : null;
   const leader = [...scene.carStates.values()].sort((a, b) => b.distance - a.distance)[0];
-  const followed = driver ?? leader;
-  if (scene.view === "overview" || !followed?.pose) {
-    const aspect = scene.app.graphicsDevice.width / scene.app.graphicsDevice.height;
+  // A split-screen feed belongs to one racer; the direct camera falls back to the leader.
+  const followed = driver ?? (state.exclusive ? null : leader);
+  if (state.mode === "overview" || !followed?.pose) {
+    const device = scene.app.graphicsDevice;
+    const aspect = state.aspect ?? device.width / device.height;
     const fit = Math.max(1, 1.4 / aspect);
-    scene.camera.setPosition(routeCenter.x + 74 * fit, 114 * fit, routeCenter.z + 88 * fit);
-    scene.camera.lookAt(routeCenter.x, 0, routeCenter.z);
-    scene.cameraPlaced = false;
-    scene.chaseCamera = null;
-    scene.camera.camera.fov = 62;
+    camera.setPosition(routeCenter.x + 74 * fit, 114 * fit, routeCenter.z + 88 * fit);
+    camera.lookAt(routeCenter.x, 0, routeCenter.z);
+    state.placed = false;
+    state.chase = null;
+    camera.camera.fov = 62;
     return;
   }
   const pose = followed.pose;
-  const followKey = `${scene.view}:${followed.car.id}`;
-  if (scene.cameraFollowKey !== followKey) scene.cameraPlaced = false;
-  scene.cameraFollowKey = followKey;
-  if (scene.view === "driver") {
-    scene.chaseCamera = updateKartCamera(scene.chaseCamera, pose, followed.car.speed, dt, {
-      reset: !scene.cameraPlaced,
-      raycast: (start, end) => scene.app.systems.rigidbody.raycastFirst(
-        new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
-        { filterCollisionMask: pc.BODYGROUP_STATIC },
-      ),
-    });
-    const { position, target, fov } = scene.chaseCamera;
-    scene.camera.setPosition(position.x, position.y, position.z);
-    scene.camera.lookAt(target.x, target.y, target.z);
-    scene.camera.camera.fov = fov;
-    scene.cameraPlaced = true;
+  const followKey = `${state.mode}:${followed.car.id}`;
+  if (state.followKey !== followKey) state.placed = false;
+  state.followKey = followKey;
+  if (state.mode === "driver") {
+    state.chase = updateKartCamera(state.chase, pose, followed.car.speed, dt, { reset: !state.placed, raycast });
+    const { position, target, fov } = state.chase;
+    camera.setPosition(position.x, position.y, position.z);
+    camera.lookAt(target.x, target.y, target.z);
+    camera.camera.fov = fov;
+    state.placed = true;
     return;
   }
-  scene.chaseCamera = null;
-  scene.camera.camera.fov = 62;
-  const cockpit = scene.view === "cockpit";
-  const spectator = scene.view === "spectator";
+  state.chase = null;
+  camera.camera.fov = 62;
+  const cockpit = state.mode === "cockpit";
+  const spectator = state.mode === "spectator";
   const back = cockpit ? -0.5 : spectator ? 20 : 6.5;
   const height = cockpit ? 1.25 : spectator ? 24 : 3.5;
   const target = new pc.Vec3(pose.x + pose.forward.x * 4, pose.y + 0.7, pose.z + pose.forward.z * 4);
@@ -232,9 +272,96 @@ function updateCamera(scene, dt) {
     const hit = scene.app.systems.rigidbody.raycastFirst(origin, desired, { filterCollisionMask: pc.BODYGROUP_STATIC });
     if (hit) desired.lerp(origin, desired, Math.max(0, hit.hitFraction - 0.06));
   }
-  const amount = scene.cameraPlaced ? smoothingFactor(dt, 8) : 1;
-  const position = scene.camera.getPosition().clone().lerp(scene.camera.getPosition(), desired, amount);
-  scene.camera.setPosition(position);
-  scene.camera.lookAt(target);
-  scene.cameraPlaced = true;
+  const amount = state.placed ? smoothingFactor(dt, 8) : 1;
+  const position = camera.getPosition().clone().lerp(camera.getPosition(), desired, amount);
+  camera.setPosition(position);
+  camera.lookAt(target);
+  state.placed = true;
+}
+
+// ---------- Split screen ----------
+// One map and one graphics device. Each feed renders through the race's full
+// post-processing into its own texture at panel resolution, then the finished
+// images tile the canvas, exactly like the four-camera graphics test level.
+
+function setSplitScreen(scene, feeds) {
+  const views = feeds ? splitScreenViews(feeds) : null;
+  const signature = views?.map((view) => [view.key, view.mode, view.playerId, view.x, view.y, view.w, view.h].join(":")).join("|") ?? null;
+  if (signature === (scene.split?.signature ?? null)) return;
+  destroySplitViews(scene);
+  // With a split screen every feed draws to its own texture, so the direct camera rests.
+  scene.camera.enabled = !views;
+  if (!views) return;
+  const device = scene.app.graphicsDevice;
+  scene.copyShader ??= createCopyShader(device);
+  scene.split = {
+    signature,
+    views: views.map((cell, index) => {
+      const texture = new pc.Texture(device, {
+        name: `Feed / ${cell.key}`, width: 2, height: 2, format: pc.PIXELFORMAT_RGBA8,
+        mipmaps: false, minFilter: pc.FILTER_LINEAR, magFilter: pc.FILTER_LINEAR,
+        addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+      });
+      const target = new pc.RenderTarget({ colorBuffer: texture, depth: true });
+      const camera = new pc.Entity(`Feed camera / ${cell.key}`);
+      camera.addComponent("camera", {
+        ...cameraOptions(), renderTarget: target, priority: index, aspectRatioMode: pc.ASPECT_MANUAL,
+      });
+      scene.app.root.addChild(camera);
+      const frame = setupContactShadows(scene.app, camera);
+      const state = createCameraState(camera, cell.mode, cell.playerId, { exclusive: true });
+      return { cell, state, frame, target, texture, rect: new pc.Vec4() };
+    }),
+  };
+  layoutSplitViews(scene);
+}
+
+function layoutSplitViews(scene) {
+  if (!scene.split) return;
+  const device = scene.app.graphicsDevice;
+  for (const view of scene.split.views) {
+    const rect = cellPixelRect(view.cell, device.width, device.height);
+    view.rect.set(rect.x, rect.y, rect.width, rect.height);
+    view.target.resize(rect.width, rect.height);
+    view.state.aspect = rect.width / rect.height;
+    view.state.camera.camera.aspectRatio = view.state.aspect;
+  }
+}
+
+function presentSplitViews(scene) {
+  if (!scene.split) return;
+  const device = scene.app.graphicsDevice;
+  device.setBlendState(pc.BlendState.NOBLEND);
+  const uniform = device.scope.resolve("viewTexture");
+  for (const view of scene.split.views) {
+    uniform.setValue(view.texture);
+    pc.drawQuadWithShader(device, null, scene.copyShader, view.rect, view.rect);
+  }
+}
+
+function destroySplitViews(scene) {
+  if (!scene.split) return;
+  for (const view of scene.split.views) {
+    view.frame.destroy();
+    view.state.camera.destroy();
+    view.target.destroy();
+    view.texture.destroy();
+  }
+  scene.split = null;
+}
+
+function createCopyShader(device) {
+  return pc.createShaderFromCode(device, `
+    attribute vec2 aPosition;
+    varying vec2 vUv;
+    void main(void) {
+      vUv = aPosition * 0.5 + 0.5;
+      gl_Position = vec4(aPosition, 0.0, 1.0);
+    }
+  `, `
+    precision highp float;
+    varying vec2 vUv;
+    uniform sampler2D viewTexture;
+    void main(void) { gl_FragColor = texture2D(viewTexture, vUv); }
+  `, "Race feed copy", { aPosition: pc.SEMANTIC_POSITION });
 }
