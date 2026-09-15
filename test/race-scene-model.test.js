@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { frontAxleWorldPosition, raceObstaclesFromRoom, carWorldTransform, raceCarsFromRoom, sampleTrack, ROAD_HALF_WIDTH, ROAD_WORLD_LENGTH, smoothingFactor } from "../src/race-scene-model.js";
 
-import { CAR_FRONT_AXLE_OFFSET_WORLD, CAR_SIZE_WORLD, TRACK_OBSTACLES, carPositionToWorld, worldPositionToCar, obstaclePositionToWorld, obstacleSizeToWorld } from "../shared/race-config.js";
+import { CAR_FRONT_AXLE_OFFSET_WORLD, CAR_SIZE_WORLD, TRACK_OBSTACLES, carPositionToWorld, worldPositionToCar } from "../shared/race-config.js";
 
 test("the complete 500m race follows a closed, curved lap", () => {
   const start = sampleTrack(0);
@@ -122,19 +122,8 @@ test("visual yaw is anchored at the front axle instead of the body centre", () =
 });
 
 
-test("server barriers share the circuit position, tangent and collision dimensions", () => {
-  const barriers = raceObstaclesFromRoom({ obstacles: TRACK_OBSTACLES });
-  assert.equal(barriers.length, 3);
-  for (const barrier of barriers) {
-    const physics = obstaclePositionToWorld(barrier);
-    const center = sampleTrack(-physics.z);
-    assert.deepEqual(barrier.size, obstacleSizeToWorld(barrier));
-    assert.equal(barrier.position.yaw, center.yaw);
-    assert.ok(Math.abs(barrier.position.x - (center.x - center.forward.z * physics.x)) < 1e-9);
-    assert.ok(Math.abs(barrier.position.z - (center.z + center.forward.x * physics.x)) < 1e-9);
-    const car = carWorldTransform({ distance: barrier.distance, lane: barrier.lane });
-    assert.ok(Math.hypot(car.x - barrier.position.x, car.z - barrier.position.z) < 1e-9);
-  }
+test("the map contains no prototype barrier visuals", () => {
+  assert.deepEqual(raceObstaclesFromRoom({ obstacles: TRACK_OBSTACLES }), []);
 });
 
 test("collision correction round-trips all grid rows across the grid fade and finish", () => {

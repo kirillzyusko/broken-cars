@@ -216,7 +216,7 @@ test("two players see synchronized acceleration and opposite steering movement",
   assert.deepEqual(playerCars, hostCars);
 });
 
-test("a car collides with a static barrier instead of passing through it", async () => {
+test("the former prototype barrier location is clear for driving", async () => {
   const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -228,7 +228,7 @@ test("a car collides with a static barrier instead of passing through it", async
   room.raceEndsAt = 100_000;
   engine.tick(2_000);
 
-  const obstacle = TRACK_OBSTACLES[0];
+  const obstacle = { distance: 115, lane: -0.62, length: 6 };
   const car = room.players.get("player-1").car;
   const pose = circuitTransform(obstaclePositionToWorld(obstacle));
   car.worldPosition = { x: pose.x - pose.forward.x * 6, y: CAR_SIZE_WORLD.y / 2, z: pose.z - pose.forward.z * 6 };
@@ -241,18 +241,9 @@ test("a car collides with a static barrier instead of passing through it", async
     engine.tick(now);
   }
 
-  assert.ok(car.distance < obstacle.distance - obstacle.length / 2);
-  assert.ok(car.speed < 10);
-  assert.equal(car.collisionCount, 1);
-  assert.ok(car.velocityX * pose.forward.x + car.velocityZ * pose.forward.z <= 0, "the barrier should reflect normal velocity");
-  assert.equal(car.lastCollision.type, "obstacle");
-  assert.equal(car.lastCollision.targetId, obstacle.id);
-  assert.ok(car.lastCollision.impactSpeed > 0);
-  assert.ok(car.lastCollision.impulseNs > 0);
-  assert.ok(car.lastCollision.normal.x * pose.forward.x + car.lastCollision.normal.z * pose.forward.z < -0.99);
-  const publicCar = engine.serialize(room).players[0].car;
-  assert.equal(publicCar.collisionCount, 1);
-  assert.equal("_collisionCooldownUntilMs" in publicCar, false);
+  assert.ok((car.worldPosition.x - pose.x) * pose.forward.x + (car.worldPosition.z - pose.z) * pose.forward.z > 0, "car should drive past the old barrier");
+  assert.equal(car.collisionCount, 0);
+  assert.deepEqual(engine.serialize(room).obstacles, []);
 });
 
 test("rear-end car collisions exchange momentum and separate both cars", async () => {
