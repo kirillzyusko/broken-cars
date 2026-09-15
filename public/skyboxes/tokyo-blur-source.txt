@@ -1,0 +1,3 @@
+User-supplied texture: T_Mobt1_VR_Alb (Tokyo Blur).png
+Source folder: _mmd_mario_kart_8_deluxe_skyboxes_download_by_sab64_djjkmgo/MK8D Skyboxes/textures
+Copied unchanged. This texture is separate from the Kenney CC0 assets.

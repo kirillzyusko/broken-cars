@@ -18,9 +18,9 @@ void getAlbedo() {
     float distanceToEye = length(view_position.xz - vPositionW.xz);
     float detail = 1.0 - smoothstep(90.0, 240.0, distanceToEye);
     float highlights = smoothstep(0.18, 0.95, layerA.r * 0.78 + layerB.r * 0.3) * detail;
-    vec3 blue = vec3(0.035, 0.40, 0.68);
-    vec3 turquoise = vec3(0.045, 0.61, 0.76);
-    vec3 light = vec3(0.43, 0.88, 0.93);
+    vec3 blue = vec3(0.08, 0.57, 0.80);
+    vec3 turquoise = vec3(0.18, 0.72, 0.88);
+    vec3 light = vec3(0.72, 0.94, 0.98);
     vec3 color = mix(blue, turquoise, 0.36 + layerA.g * 0.42);
     color = mix(color, light, highlights * 0.72);
     dAlbedo = pow(color, vec3(2.2));
@@ -46,6 +46,7 @@ export function createRaceWater(app, visual, skybox) {
   material.gloss = 0.72;
   material.cubeMap = skybox;
   material.reflectivity = 0.22;
+  material.useFog = true;
   material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set("diffusePS", waterDiffuse);
   material.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set("normalMapPS", waterNormal);
   material.setParameter("uWaterPattern", textures.pattern);
