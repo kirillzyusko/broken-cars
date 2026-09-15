@@ -94,6 +94,27 @@ export class KartAudioMixer {
     source.start();
   }
 
+  impact(volume, pan) {
+    if (this.disposed || this.shots.size >= 16) return;
+    const now = this.context.currentTime;
+    const source = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const panner = this.context.createStereoPanner();
+    source.type = "triangle";
+    source.frequency.setValueAtTime(180, now);
+    source.frequency.exponentialRampToValueAtTime(35, now + 0.16);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    panner.pan.value = pan;
+    source.connect(gain).connect(panner).connect(this.master);
+    const shot = { source, gain, panner };
+    this.shots.add(shot);
+    source.onended = () => { source.disconnect(); gain.disconnect(); panner.disconnect(); this.shots.delete(shot); };
+    source.start(now);
+    source.stop(now + 0.22);
+  }
+
   countdown(go) {
     if (this.disposed || this.shots.size >= 16) return;
     const source = this.context.createOscillator();
@@ -164,6 +185,15 @@ export class KartAudioMixer {
           this.oneShot("lift", `${car.id}:lift`, volume * 0.12, pan, 0.65);
         }
       }
+      if (voice.hornSerial !== undefined && (car.hornSerial ?? 0) > voice.hornSerial) {
+        this.oneShot("horn", `${car.id}:horn`, volume * 0.45, pan, 1.5);
+      }
+      if (voice.collisionCount !== undefined && (car.collisionCount ?? 0) > voice.collisionCount
+        && car.lastCollision?.impactSpeed > 1) {
+        this.impact(volume * clamp(car.lastCollision.impactSpeed / 15, 0.12, 0.45), pan);
+      }
+      voice.hornSerial = car.hornSerial ?? 0;
+      voice.collisionCount = car.collisionCount ?? 0;
       voice.mix = mix;
     }
     for (const [key, until] of this.cooldowns) if (until < this.context.currentTime - 2) this.cooldowns.delete(key);
@@ -181,7 +211,7 @@ export class KartAudioMixer {
   }
 }
 
-export function createKartAudio() {
+export function createKartAudio({ keyboardHorn = true } = {}) {
   let context, mixer, loading, disposed = false, active = false, muted = false;
   let retryAt = 0;
   let lastStartId, lastStep = 0;
@@ -205,7 +235,7 @@ export function createKartAudio() {
     unlock();
     if (event.repeat) return;
     if (event.code === "KeyM") muted = !muted;
-    if (event.code === "KeyH" && active && !muted) mixer?.oneShot("horn", "local:horn", 0.3, 0, 0.3);
+    if (keyboardHorn && event.code === "KeyH" && active && !muted) mixer?.oneShot("horn", "local:horn", 0.3, 0, 1.5);
   };
   const visibility = () => {
     if (document.hidden) context?.suspend().catch(() => {});

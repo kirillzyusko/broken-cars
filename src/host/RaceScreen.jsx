@@ -32,7 +32,7 @@ export function RaceScreen({ room, now }) {
     <div className="tv-screen tv-race">
       <header className="tv-race__header">
         <span className="tv-race__track">{TRACK_NAME}</span>
-        <Pill tone="yellow" className="tv-pill">Round {round} · {room.trackLength}m</Pill>
+        <Pill tone="yellow" className="tv-pill">{room.finalRace ? "FINAL RACE" : `Round ${round} · ${room.trackLength}m`}</Pill>
         <div className="tv-race__standings">
           {order.slice(0, 4).map((player, index) => (
             <div className="tv-standing-pill" key={player.id}>

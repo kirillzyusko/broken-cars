@@ -498,6 +498,8 @@ test("all defects apply together and specific repairs leave other faults unchang
   }, 2011);
   assert.deepEqual(player.car.defectIds, ["no_grip", "no_steering"]);
   assert.deepEqual(player.lastRepairIds, ["no_engine", "square_wheels"]);
+  assert.equal(room.finalRace, false);
+  assert.match(player.car.mechanicNote, /2 faults remain/);
   room.phase = "finished";
   engine.startTuning(room.id, room.hostToken, 3000);
   engine.submitTuningPrompt(room.id, "player-1", "Fix everything", 3001);
@@ -509,6 +511,10 @@ test("all defects apply together and specific repairs leave other faults unchang
   engine.submitTuningPrompt(room.id, "player-1", "It slides like ice and the steering does nothing", 4001);
   await engine.startNextRace(room.id, room.hostToken, async () => ({ "player-1": ["no_grip", "no_steering"] }), 4011);
   assert.deepEqual(player.car.defectIds, []);
+  assert.equal(room.finalRace, true);
+  assert.equal(room.phase, "countdown");
+  assert.equal(engine.serialize(room).finalRace, true);
+  assert.match(player.car.mechanicNote, /All faults fixed/);
 
 });
 
@@ -807,4 +813,22 @@ test("prompt tuning persists through repairs and only requested axes change", as
   await engine.startNextRace(room.id, room.hostToken, async () => ({ driver: { defectIds: [], tuning: { steering: "low" } } }), 3002);
   assert.deepEqual(car.tuning, { speed: 8, steering: 0.6 });
   assert.deepEqual(engine.serialize(room).players[0].car.tuning, car.tuning);
+});
+
+test("server countdown accepts timed starts and broadcasts horns", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, startCountdownMs: 5000 });
+  const room = engine.createRoom(1000);
+  engine.joinPlayer(room.id, "driver", 1000);
+  engine.startPrompting(room.id, room.hostToken, 1000);
+  engine.submitPrompt(room.id, "driver", "Kart", 1000);
+  await startRepairedRace(engine, room);
+  engine.setControls(room.id, "driver", { horn: true }, room.startsAt - 400);
+  assert.ok(engine.tick(room.startsAt - 350).includes(room.id));
+  engine.setControls(room.id, "driver", { accelerate: true, horn: true }, room.startsAt - 300);
+  const car = room.players.get("driver").car;
+  assert.equal(engine.serialize(room).players[0].car.hornSerial, 1);
+  engine.tick(room.startsAt);
+  assert.equal(car.startResult, "boost");
+  engine.tick(room.startsAt + 100);
+  assert.ok(car.speed > 0);
 });

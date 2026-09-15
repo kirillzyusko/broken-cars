@@ -57,6 +57,7 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     massKg: player.car.massKg ?? 1_000,
     collisionCount: player.car.collisionCount ?? 0,
     lastCollision: player.car.lastCollision ?? null,
+    hornSerial: player.car.hornSerial ?? 0,
     rank: player.car.rank,
     index,
     carCount: racers.length,

@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { createKartImpactEffects } from "./kart-impact-effects.js";
 import { resultsLapPose } from "./results-lap.js";
 import { createTireMarks } from "./tire-marks.js";
 import { createKartThoughtBubbles } from "./kart-thought-bubbles.js";
@@ -47,7 +48,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   app.start();
   const main = createCameraState(camera, view, currentPlayerId);
   const scene = {
-    audio: createKartAudio(), audioActive: true, tireMarks: createTireMarks(app),
+    audio: createKartAudio(), audioActive: true, impacts: createKartImpactEffects(app), tireMarks: createTireMarks(app),
     thoughtBubbles: createKartThoughtBubbles(app),
     reducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     app, camera, cameraFrame, main, split: null, copyShader: null,
@@ -65,6 +66,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     destroy() {
       scene.audio.dispose();
       scene.tireMarks.destroy();
+      scene.impacts.destroy();
       scene.thoughtBubbles.destroy();
       scene.startLights?.destroy();
       destroySplitViews(scene);
@@ -206,6 +208,14 @@ function updateScene(scene, dt) {
       ? resultsLapPose(finishDistance, state.car.index, scene.resultsTime ?? 0)
       : carWorldTransform(state, state.car.index, state.car.carCount);
     state.pose = pose;
+    state.impactRemaining = Math.max(0, (state.impactRemaining ?? 0) - dt);
+    if (state.seenCollisions !== undefined && state.car.collisionCount > state.seenCollisions
+      && state.car.lastCollision?.impactSpeed > 1 && scene.audioActive) {
+      state.impactRemaining = 0.22;
+      state.impactStrength = Math.min(0.07, state.car.lastCollision.impactSpeed * 0.006);
+      if (!scene.reducedMotion) scene.impacts.burst(pose, state.car.lastCollision);
+    }
+    state.seenCollisions = state.car.collisionCount;
     const axle = frontAxleWorldPosition(pose, pose.yaw);
     state.entity.setPosition(axle.x, axle.y, axle.z);
     state.entity.setEulerAngles(0, pose.yaw, 0);
@@ -238,6 +248,7 @@ function updateScene(scene, dt) {
     state.wheelPose = { x: pose.x, z: pose.z };
   }
   scene.tireMarks.update(dt);
+  scene.impacts.update(dt);
   const start = scene.startClock;
   const now = start ? start.serverNow + performance.now() - start.receivedAt : 0;
   const signal = raceStartSignal(start?.startsAt, now);
@@ -304,7 +315,9 @@ function placeCamera(scene, state, dt, raycast) {
   if (state.mode === "driver" || state.mode === "results") {
     state.chase = updateKartCamera(state.chase, pose, state.mode === "results" ? 7 : followed.car.speed, dt, { reset: !state.placed, raycast });
     const { position, target, fov } = state.chase;
-    camera.setPosition(position.x, position.y, position.z);
+    const impact = !scene.reducedMotion && state.mode === "driver" ? followed.impactRemaining ?? 0 : 0;
+    const shake = (followed.impactStrength ?? 0) * impact / 0.22;
+    camera.setPosition(position.x + Math.sin(impact * 130) * shake, position.y + Math.cos(impact * 110) * shake, position.z);
     camera.lookAt(target.x, target.y, target.z);
     camera.camera.fov = fov;
     state.placed = true;

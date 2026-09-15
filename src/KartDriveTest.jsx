@@ -5,6 +5,7 @@ import KartDevPanel from "./KartDevPanel.jsx";
 import { applyKartSettings, DEFAULT_KART_SETTINGS } from "./kart-dev-settings.js";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
+import { recordLocalImpact, updateRaceInputs, resolveRaceStart } from "../shared/race-extras.js";
 import { DRIVING_STEP, stepKart, STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress } from "../shared/track-world.js";
 import { createDrivingWorld } from "../shared/driving-world.js";
@@ -34,7 +35,7 @@ export default function KartDriveTest() {
       const now = performance.now();
       startClock = { startsAt: now + 5000, serverNow: now, receivedAt: now, id: `sandbox:${now}` };
       if (scene) scene.startClock = startClock;
-      setStartFrame({ startsAt: startClock.startsAt, now });
+      setStartFrame({ startsAt: startClock.startsAt, now, startResult: drive.startResult });
       lastOverlayAt = now;
     };
     const supported = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyR"]);
@@ -91,13 +92,15 @@ export default function KartDriveTest() {
         }
         const now = performance.now();
         if (lastOverlayAt <= startClock.startsAt + 1100 && now - lastOverlayAt >= 50) {
-          setStartFrame({ startsAt: startClock.startsAt, now });
+          setStartFrame({ startsAt: startClock.startsAt, now, startResult: drive.startResult });
           lastOverlayAt = now;
         }
         const throttle = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
         const brake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
         const drift = keys.has("Space");
         const steering = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
+        const input = { accelerate: !!throttle, brake: !!brake, drift, left: steering < 0, right: steering > 0 };
+        updateRaceInputs(drive, input, now, startClock.startsAt);
         if (now < startClock.startsAt || appliedSettings.paused) {
           accumulator = 0;
           drive.throttle = appliedSettings.paused ? 0 : throttle;
@@ -105,11 +108,13 @@ export default function KartDriveTest() {
           publish();
           return;
         }
+        resolveRaceStart(drive, input, startClock.startsAt);
         accumulator += Math.min(elapsed, 0.1);
         while (accumulator + 1e-9 >= DRIVING_STEP) {
           const previous = { ...drive.worldPosition };
           const resetVersion = drive.resetVersion;
-          stepKart(drive, { accelerate: !!throttle, brake: !!brake, drift, left: steering < 0, right: steering > 0 }, DRIVING_STEP, drivingTime, world);
+          const hit = stepKart(drive, { accelerate: !!throttle, brake: !!brake, drift, left: steering < 0, right: steering > 0 }, DRIVING_STEP, drivingTime, world);
+          recordLocalImpact(drive, hit, drivingTime);
           if (drive.resetVersion === resetVersion) updateLapProgress(drive, previous);
           accumulator -= DRIVING_STEP;
           drivingTime += DRIVING_STEP * 1000;

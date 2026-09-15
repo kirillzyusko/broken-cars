@@ -1,3 +1,4 @@
+import { recordLocalImpact, updateRaceInputs, resolveRaceStart } from "../shared/race-extras.js";
 import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress } from "../shared/track-world.js";
 import { TRACK_LENGTH_METERS } from "../shared/race-config.js";
@@ -41,7 +42,7 @@ export function createPlayerRaceTest(world) {
   return {
     reset,
     start(now) { startsAt = now + 5000; },
-    setControls(next) { controls = { ...next }; },
+    setControls(next, now = Date.now()) { controls = { ...next }; updateRaceInputs(car, controls, now, startsAt); },
     finish,
     step(deltaSeconds, now) {
       if (startsAt === null || now < startsAt || car.finishedAtMs !== null) {
@@ -49,11 +50,13 @@ export function createPlayerRaceTest(world) {
         car.throttle = car.finishedAtMs === null && controls.accelerate ? 1 : 0;
         return;
       }
+      resolveRaceStart(car, controls, startsAt);
       accumulator += Math.min(deltaSeconds, 0.1);
       while (accumulator + 1e-9 >= DRIVING_STEP) {
         const previous = { ...car.worldPosition };
         const resetVersion = car.resetVersion;
-        stepKart(car, controls, DRIVING_STEP, elapsedMs, world);
+        const hit = stepKart(car, controls, DRIVING_STEP, elapsedMs, world);
+        recordLocalImpact(car, hit, elapsedMs);
         if (resetVersion === car.resetVersion) updateLapProgress(car, previous);
         accumulator -= DRIVING_STEP;
         elapsedMs += DRIVING_STEP * 1000;

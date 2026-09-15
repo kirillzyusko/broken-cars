@@ -30,6 +30,10 @@ const moveToward = (value, target, delta) => value < target ? Math.min(target, v
 // No vertical velocity, jump or automatic track steering.
 export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   const previous = { ...car.worldPosition };
+  const stalled = (car.startStallRemaining ?? 0) > 0;
+  const boosted = (car.launchBoostRemaining ?? 0) > 0;
+  car.startStallRemaining = Math.max(0, (car.startStallRemaining ?? 0) - dt);
+  car.launchBoostRemaining = Math.max(0, (car.launchBoostRemaining ?? 0) - dt);
   const defects = new Set(car.defectIds);
   let acceleratePressed = controls.accelerate;
   let brakePressed = controls.brake;
@@ -127,7 +131,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   const speedTuning = tuningMultiplier(car.tuning?.speed, 0.35, 8);
   const steeringTuning = tuningMultiplier(car.tuning?.steering, 0.12, 4);
   maxSpeed *= speedTuning;
-  engineAcceleration *= speedTuning;
+  engineAcceleration *= speedTuning * (stalled ? 0 : boosted ? 1.8 : 1);
   if (car.offRoad) { maxSpeed *= DRIVING_TUNING.offRoadSpeed; engineAcceleration *= 0.8; rollingDrag += 2; }
   const speedRatio = clamp(car.speed / maxSpeed, 0, 1);
   const braking = canBrake && (controls.stop || (brakePressed && !reversing));
@@ -192,6 +196,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   if (result?.recover) { recoverDriving(car); return; }
   car.worldPosition = result?.position ?? desired;
   car.offRoad = result?.offRoad ?? false;
+  if (forwardSpeed < -0.2) car.reverseMeters = (car.reverseMeters ?? 0) + Math.hypot(car.worldPosition.x - previous.x, car.worldPosition.z - previous.z);
   if (result?.hit) {
     const sourceNormal = result.hit.normal;
     const length = Math.hypot(sourceNormal.x, sourceNormal.z);
@@ -202,7 +207,8 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
     if (into < 0) {
       car.velocityX -= normal.x * into;
       car.velocityZ -= normal.z * into;
-      car.velocityX *= 0.5; car.velocityZ *= 0.5;
+      // Keep motion along the wall so the driver can steer or reverse away.
+      car.velocityX *= 0.85; car.velocityZ *= 0.85;
       car.speed = Math.hypot(car.velocityX, car.velocityZ);
     }
   }

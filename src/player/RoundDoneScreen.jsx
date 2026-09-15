@@ -1,3 +1,4 @@
+import { raceAward } from "../../shared/race-extras.js";
 import { formatRaceResult, ordinal } from "../lib/format.js";
 import { positionOf, racePositions, sessionOver, tally } from "../lib/standings.js";
 import { Pill } from "../components/primitives.jsx";
@@ -6,6 +7,8 @@ export function RoundDoneScreen({ room, me, history }) {
   const order = racePositions(room);
   const over = sessionOver(room);
   const rows = tally(history, room);
+  const award = raceAward(room.players);
+  const awardName = rows.find((p) => p.id === award?.playerId)?.name;
   const winner = rows[0];
   const pointsById = new Map(rows.map((player) => [player.id, player.points]));
   const myRank = me.car?.rank ?? null;
@@ -55,6 +58,7 @@ export function RoundDoneScreen({ room, me, history }) {
         ))}
       </section>
 
+      {award && <p className="race-award">{award.title}: {awardName} · {award.detail}</p>}
       <section className={`ph-card ${card.tone}`} style={{ marginTop: "auto" }}>
         <span className="ph-card__label">{card.label}</span>
         <span className="ph-card__text">{card.text}</span>

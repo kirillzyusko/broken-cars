@@ -1,3 +1,4 @@
+import { updateRaceInputs, resolveRaceStart, mechanicFeedback } from "../shared/race-extras.js";
 import { applyKartTuning } from "../shared/kart-tuning.js";
 import { stepKart, DRIVING_STEP } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress, circuitTransform } from "../shared/track-world.js";
@@ -261,10 +262,10 @@ function registerCollision(car, key, collision, raceElapsedMs) {
     || raceElapsedMs >= car._collisionCooldownUntilMs
   ) {
     car.collisionCount += 1;
+    car.lastCollision = { ...collision, atMs: raceElapsedMs };
   }
   car._lastCollisionKey = key;
   car._collisionCooldownUntilMs = raceElapsedMs + COLLISION_COOLDOWN_MS;
-  car.lastCollision = { ...collision, atMs: raceElapsedMs };
 }
 
 function contactNormalToTrack(hit) {
@@ -739,6 +740,7 @@ export class GameEngine {
       }
       player.car = createCar(player, index, defectIds);
       player.car.tuning = applyKartTuning({}, assignment?.tuning);
+      if (assignment?.tuning) player.car.mechanicNote = mechanicFeedback({}, player.car.tuning, [], player.car.defectIds.length);
       player.controls = { ...EMPTY_CONTROLS };
       player.tuningPrompt = "";
       player.lastRepairId = null;
@@ -816,6 +818,7 @@ export class GameEngine {
       const decision = repairs[player.id];
       const suggested = Array.isArray(decision) ? decision
         : typeof decision === "string" ? [decision] : decision?.defectIds ?? [];
+      const previousTuning = player.car.tuning;
       player.car.tuning = applyKartTuning(player.car.tuning, decision?.tuning);
       const current = new Set(player.car.defectIds);
       player.lastRepairIds = [...new Set(suggested.filter((id) => current.has(id)))];
@@ -824,8 +827,10 @@ export class GameEngine {
       player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));
       player.controls = { ...EMPTY_CONTROLS };
       resetCarForRace(player.car);
+      player.car.mechanicNote = mechanicFeedback(previousTuning, player.car.tuning, player.lastRepairIds.map((id) => DEFECT_MAP.get(id)?.label ?? id), player.car.defectIds.length);
     }
 
+    room.finalRace = racers.length > 0 && racers.every((player) => player.car.defectIds.length === 0);
     room.roundNumber += 1;
     room.finishers = [];
     // Garage requests can outlast the countdown; start it only when cars are ready.
@@ -837,7 +842,7 @@ export class GameEngine {
     return room;
   }
 
-  setControls(roomId, clientId, controls) {
+  setControls(roomId, clientId, controls, now = Date.now()) {
     const room = this.requireRoom(roomId);
     const player = room.players.get(clientId);
     if (!player?.car) return;
@@ -850,7 +855,11 @@ export class GameEngine {
       right: controls.right === true,
       stop: controls.stop === true,
       drift: controls.drift === true,
+      horn: controls.horn === true,
     };
+    const previousHorn = player.car.hornSerial;
+    updateRaceInputs(player.car, player.controls, now, room.startsAt);
+    if (room.phase === "countdown" && previousHorn !== player.car.hornSerial) room.countdownInputChanged = true;
   }
 
   tick(now = Date.now()) {
@@ -858,7 +867,8 @@ export class GameEngine {
 
     for (const room of this.rooms.values()) {
       if (room.phase === "countdown") {
-        let revsChanged = false;
+        let revsChanged = !!room.countdownInputChanged;
+        room.countdownInputChanged = false;
         for (const player of room.players.values()) if (player.car) {
           revsChanged ||= player.car.throttle !== Number(player.controls.accelerate);
           player.car.throttle = player.controls.accelerate ? 1 : 0;
@@ -867,6 +877,7 @@ export class GameEngine {
         if (revsChanged && now < room.startsAt) changedRooms.push(room.id);
       }
       if (room.phase === "countdown" && now >= room.startsAt) {
+        for (const player of room.players.values()) if (player.car) resolveRaceStart(player.car, player.controls, room.startsAt);
         room.phase = "racing";
         room.stationarySince = now;
         room.stationaryPositions = new Map([...room.players.values()].filter((player) => player.car)
@@ -963,6 +974,7 @@ export class GameEngine {
       buildDurationMs: this.buildDurationMs,
       tuningDurationMs: this.tuningDurationMs,
       selectorName,
+      finalRace: !!room.finalRace,
       roundNumber: room.roundNumber,
       finishers: [...room.finishers],
       players: [...room.players.values()].map((player) =>

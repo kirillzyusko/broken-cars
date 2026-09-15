@@ -113,3 +113,14 @@ test("imported WAVs have valid durations and continuous loop boundaries", () => 
     if (sample.loop) assert.ok(Math.abs(wav.readInt16LE(44) - wav.readInt16LE(wav.length - 2)) < 3500);
   }
 });
+
+test("remote horns and impacts play once per event and ignore old snapshots", () => {
+  const { mixer, oscillators } = setup();
+  mixer.update([{ ...car, hornSerial: 4, collisionCount: 2 }], car.id, {}, 1 / 60);
+  assert.equal(mixer.shots.size, 0);
+  const event = { ...car, hornSerial: 5, collisionCount: 3, lastCollision: { impactSpeed: 6 } };
+  for (let i = 0; i < 20; i++) mixer.update([event], car.id, {}, 1 / 60);
+  assert.equal(mixer.shots.size, 2);
+  assert.equal(oscillators.length, 1);
+  mixer.dispose();
+});

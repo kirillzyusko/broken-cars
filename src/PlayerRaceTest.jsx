@@ -4,6 +4,8 @@ import { findPlayer } from "./lib/identity.js";
 import { SHOUTS } from "./lib/shouts.js";
 import { createDrivingWorld } from "../shared/driving-world.js";
 import { createPlayerRaceTest, TEST_PLAYER_ID } from "./player-race-test-model.js";
+import { createKartAudio } from "./kart-audio.js";
+import { raceCarsFromRoom } from "./race-scene-model.js";
 import track from "./corsica-track.json" with { type: "json" };
 import "./player-race-test.css";
 
@@ -25,6 +27,7 @@ export default function PlayerRaceTest() {
     let frame;
     let previous;
     let lastPublished = 0;
+    const audio = createKartAudio({ keyboardHorn: false });
     async function load() {
       try {
         const response = await fetch(track.collisionUrl, { signal: abort.signal });
@@ -38,7 +41,9 @@ export default function PlayerRaceTest() {
           model.step(previous === undefined ? 0 : (time - previous) / 1000, Date.now());
           previous = time;
           if (time - lastPublished >= 1000 / 30) {
-            setRoom(model.snapshot(Date.now()));
+            const snapshot = model.snapshot(Date.now());
+            setRoom(snapshot);
+            audio.update(raceCarsFromRoom(snapshot, TEST_PLAYER_ID), TEST_PLAYER_ID, { yaw: 0 }, (time - lastPublished) / 1000, true);
             lastPublished = time;
           }
           frame = requestAnimationFrame(tick);
@@ -49,7 +54,7 @@ export default function PlayerRaceTest() {
       }
     }
     load();
-    return () => { abort.abort(); cancelAnimationFrame(frame); simulation.current = null; };
+    return () => { audio.dispose(); abort.abort(); cancelAnimationFrame(frame); simulation.current = null; };
   }, []);
 
   const restart = () => {

@@ -1,3 +1,4 @@
+import { raceAward } from "../../shared/race-extras.js";
 import { lazy, Suspense } from "react";
 import { ordinal } from "../lib/format.js";
 import { tally } from "../lib/standings.js";
@@ -7,6 +8,8 @@ const RaceView = lazy(() => import("../RaceView.jsx"));
 
 export function StandingsScreen({ room, history, hostAction, final = false }) {
   const rows = tally(history, room);
+  const award = raceAward(room.players);
+  const awardName = rows.find((p) => p.id === award?.playerId)?.name;
   return (
     <div className="tv-screen tv-results">
       <Suspense fallback={null}>
@@ -28,6 +31,7 @@ export function StandingsScreen({ room, history, hostAction, final = false }) {
             </li>
           ))}
         </ol>
+        {award && <p className="race-award">{award.title}: {awardName} · {award.detail}</p>}
         {hostAction && <StickerButton className="tv-button" type="button" disabled={hostAction.disabled} onClick={hostAction.run}>{hostAction.label}</StickerButton>}
         {final && <StickerButton as="a" className="tv-button" href="/">NEW ROOM</StickerButton>}
       </section>

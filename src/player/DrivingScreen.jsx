@@ -14,6 +14,7 @@ const EMPTY_CONTROLS = Object.freeze({
   right: false,
   stop: false,
   drift: false,
+  horn: false,
 });
 
 const KEY_MAP = {
@@ -26,6 +27,7 @@ const KEY_MAP = {
   a: "left",
   ArrowRight: "right",
   d: "right",
+  h: "horn",
 };
 
 const MAX_BUBBLES = 3;
@@ -182,6 +184,9 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
   return (
     <main className="ph-screen ph-screen--ink ph-drive ph-controller">
       <div className="ph-drive__bubbles" aria-live="polite">
+        {car.mechanicNote && now < room.startsAt + 4000 && <p className="ph-mechanic-note">{car.mechanicNote}</p>}
+        {room.phase === "countdown" && <p className="ph-mechanic-note">Press gas just before GO for a fast start. Hold too early and stall.</p>}
+        {racing && now < room.startsAt + 2200 && car.startResult && <p className="ph-mechanic-note">{car.startResult === "boost" ? "Perfect start!" : "Too early! Engine stalled."}</p>}
         {bubbles.map((bubble) => (
           <div className="ph-bubble" key={bubble.id}>
             <Avatar identity={me.identity} size={38} border={3} fontSize={17}>{me.badge}</Avatar>
@@ -191,13 +196,14 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
       </div>
 
       <div className="ph-hud">
+        <Pad control="horn" active={controls.horn} onControl={updateControl} className="ph-pad--horn">HORN</Pad>
         <div className="ph-hud__speed">
           <span className="ph-hud__speed-value">{kph(car.speed)}</span>
           <span className="ph-hud__unit">{isReversing(car) ? "KPH · REV" : "KPH"}</span>
         </div>
         <div className="ph-hud__right">
           <span className="ph-hud__pos">{positionLabel}</span>
-          <span className="ph-hud__round">R{round} · {room.trackLength}M</span>
+          <span className="ph-hud__round">{room.finalRace ? "FINAL RACE" : `R${round} · ${room.trackLength}M`}</span>
         </div>
       </div>
 

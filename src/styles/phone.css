@@ -393,3 +393,7 @@
   .ph-controller .ph-drive__bubbles { display: none; }
   .ph-controller .ph-pads { grid-template-columns: 1fr 1fr 1.35fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
 }
+
+.ph-controller .ph-pad--horn { pointer-events: auto; position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); width: 80px; height: 48px; min-height: 0; border-radius: 16px; font-size: 16px; background: #695a30; }
+.ph-mechanic-note { margin: 0; padding: 8px 12px; color: white; background: #252525; border-radius: 12px; font-size: 14px; text-align: center; }
+.race-award { font-size: 15px; text-align: center; }

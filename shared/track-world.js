@@ -57,6 +57,8 @@ export function resetDriving(car, index = 0) {
   Object.assign(car, { worldPosition: drivingSpawn(index), heading: 0, speed: 0,
     velocityX: 0, velocityZ: 0, steeringAngle: 0, angularVelocity: 0,
     distance: 0, lane: 0, nextGate: 0, reverseHeld: 0, offRoad: false, throttle: 0, braking: false, drifting: false, driftSlip: 0,
+    collisionCount: 0, lastCollision: null, impactReadyAt: null, startGasAt: null, startGasHeld: false, launchResolved: false, startResult: null,
+    launchBoostRemaining: 0, startStallRemaining: 0, reverseMeters: 0, hornHeld: false, hornReadyAt: null,
     spawnIndex: index, resetVersion: (car.resetVersion ?? 0) + 1 });
 }
 export function recoverDriving(car) {
