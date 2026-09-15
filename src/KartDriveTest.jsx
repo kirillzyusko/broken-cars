@@ -96,7 +96,7 @@ export default function KartDriveTest() {
         }
         const throttle = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
         const brake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
-        const stop = keys.has("Space");
+        const drift = keys.has("Space");
         const steering = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
         if (now < startClock.startsAt || appliedSettings.paused) {
           accumulator = 0;
@@ -109,7 +109,7 @@ export default function KartDriveTest() {
         while (accumulator + 1e-9 >= DRIVING_STEP) {
           const previous = { ...drive.worldPosition };
           const resetVersion = drive.resetVersion;
-          stepKart(drive, { accelerate: !!throttle, brake: !!brake, stop, left: steering < 0, right: steering > 0 }, DRIVING_STEP, drivingTime, world);
+          stepKart(drive, { accelerate: !!throttle, brake: !!brake, drift, left: steering < 0, right: steering > 0 }, DRIVING_STEP, drivingTime, world);
           if (drive.resetVersion === resetVersion) updateLapProgress(drive, previous);
           accumulator -= DRIVING_STEP;
           drivingTime += DRIVING_STEP * 1000;
@@ -117,7 +117,7 @@ export default function KartDriveTest() {
         publish();
         // Sound modules can read this event without adding a HUD or room connection.
         canvasRef.current?.dispatchEvent(new CustomEvent("kart-audio-state", { bubbles: true, detail: {
-          speed: drive.speed, throttle, brake: brake || Number(stop), steering, rpm: 1200 + drive.speed / STANDARD_MAX_SPEED_MPS * 6800,
+          speed: drive.speed, throttle, brake: Number(drive.braking), steering, rpm: 1200 + drive.speed / STANDARD_MAX_SPEED_MPS * 6800,
         } }));
       };
     }).catch((error) => console.error("Kart driving test failed to load", error));
@@ -136,7 +136,7 @@ export default function KartDriveTest() {
   return <>
     <BackgroundMusic racing />
     <canvas ref={canvasRef} className="map-graphics-test" tabIndex={0} onPointerDown={(event) => event.currentTarget.focus()}
-      aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
+      aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, hold Space while steering at speed to drift, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
     <KartDevPanel settings={settings} onChange={setSettings} ready={ready} onReset={() => resetRef.current?.()}
       onDrive={() => { setSettings((current) => ({ ...current, paused: false })); canvasRef.current?.focus(); }} />
     <RaceStartOverlay {...startFrame} />

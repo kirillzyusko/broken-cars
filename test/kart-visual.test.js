@@ -91,7 +91,7 @@ test("each tire meets its ground surface when straddling curb and grass", () => 
 });
 
 test("multiplayer karts apply defects and repairs on the same animated instance", () => {
-  const scene = { app, kartAssets: assets, carStates: new Map(), cameraPlaced: true };
+  const scene = { app, kartAssets: assets, carStates: new Map(), cameraPlaced: true, thoughtBubbles: { sync() {} } };
   const players = ["one", "two"].map((id) => ({ id, name: id, car: {
     color: "#fff000", distance: 0, speed: 0, defectIds: [],
   } }));

@@ -3,7 +3,7 @@ import { resetDriving, updateLapProgress } from "../shared/track-world.js";
 import { TRACK_LENGTH_METERS } from "../shared/race-config.js";
 
 export const TEST_PLAYER_ID = "test-driver";
-const EMPTY_CONTROLS = { accelerate: false, brake: false, left: false, right: false, stop: false };
+const EMPTY_CONTROLS = { accelerate: false, brake: false, left: false, right: false, stop: false, drift: false };
 
 export function createPlayerRaceTest(world) {
   let car;

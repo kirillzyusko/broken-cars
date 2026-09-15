@@ -1,7 +1,7 @@
 import { recoverDriving } from "./track-world.js";
 export const STANDARD_MAX_SPEED_MPS = 12;
 export const DRIVING_STEP = 1 / 120;
-// Our no-drift tuning, informed by Nintendo's driving guides. These are not
+// Our base handling, informed by Nintendo's driving guides. These are not
 // extracted Mario Kart constants; see docs/driving-feel.md for the tradeoffs.
 export const DRIVING_TUNING = Object.freeze({
   acceleration: 8,
@@ -26,7 +26,7 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const moveToward = (value, target, delta) => value < target ? Math.min(target, value + delta) : Math.max(target, value - delta);
 
 // World metres, clockwise heading in degrees, forward along negative Z.
-// No vertical velocity, jump, drift input or automatic track steering.
+// No vertical velocity, jump or automatic track steering.
 export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   const previous = { ...car.worldPosition };
   const defects = new Set(car.defectIds);
@@ -62,6 +62,16 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   }
   const steering = defects.has("no_steering") ? 0 : steerInput;
 
+  const wasDrifting = car.drifting;
+  car.drifting = !!controls.drift && !brakePressed && !controls.stop
+    && forwardSpeed > (car.drifting ? 3.5 : 6) && steering !== 0
+    && !defects.has("no_wheels");
+  // During a drift, speed is measured along the sliding path, not the nose.
+  const driftRecovery = !car.drifting && (car.driftSlip ?? 0) !== 0;
+  if (car.drifting || driftRecovery) {
+    forwardSpeed = Math.sign(forwardSpeed || 1) * Math.hypot(forwardSpeed, lateralSpeed);
+    if (!wasDrifting && car.drifting) car.driftSlip = 0;
+  }
   let maxSpeed = STANDARD_MAX_SPEED_MPS;
   let engineAcceleration = DRIVING_TUNING.acceleration;
   let tireGrip = 30;
@@ -131,7 +141,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   const steeringStrength = Math.min(1, Math.abs(car.steeringAngle) / steeringLimit) ** 1.25;
   // Turning costs some speed without creating a sideways slide. Lifting or
   // braking reduces the radius, giving tight corners a clear speed tradeoff.
-  const turnResistance = DRIVING_TUNING.turnResistance * steeringStrength ** 2 * speedRatio ** 2;
+  const turnResistance = (car.drifting ? 0.45 : DRIVING_TUNING.turnResistance) * steeringStrength ** 2 * speedRatio ** 2;
   forwardSpeed = moveToward(forwardSpeed, 0, (rollingDrag + turnResistance) * dt);
   if (car.offRoad && Math.abs(forwardSpeed) > maxSpeed) {
     forwardSpeed = moveToward(forwardSpeed, Math.sign(forwardSpeed) * maxSpeed, DRIVING_TUNING.offRoadDeceleration * dt);
@@ -142,14 +152,23 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   // The old bicycle-rate clamp gave tiny inputs nearly the same rate as full lock.
   const turnRadius = DRIVING_TUNING.minimumTurnRadius + DRIVING_TUNING.speedTurnRadius * forwardSpeed ** 2;
   const fullYawRate = Math.min(Math.abs(forwardSpeed) / turnRadius * 180 / Math.PI, DRIVING_TUNING.maximumYawRate);
-  const yawRate = fullYawRate * steeringStrength;
+  const yawRate = fullYawRate * steeringStrength * (car.drifting ? 1.3 : 1);
   car.heading += (Math.sign(car.steeringAngle) * Math.sign(forwardSpeed) * yawRate + car.angularVelocity) * dt;
   car.angularVelocity *= Math.exp(-8 * dt);
-  lateralSpeed *= Math.exp(-tireGrip * dt);
+  lateralSpeed *= Math.exp(-(car.drifting ? 0 : tireGrip) * dt);
   if (Math.abs(lateralSpeed) < 1e-4) lateralSpeed = 0;
   if (defects.has("loose_wheel")) car.heading += Math.sin(raceElapsedMs / 180) * car.speed * 0.15 * dt;
   if (defects.has("no_grip")) lateralSpeed += steering * car.speed * 0.3 * dt;
   if (defects.has("bad_engine_power") && car.enginePowerIssue === "overpowered" && wantsAcceleration) car.heading += Math.sin(raceElapsedMs / 95) * car.speed * 0.25 * dt;
+  if (car.drifting || driftRecovery) {
+    // A bounded slip angle gives a tight arc without letting the kart spin out.
+    // On release, rotate momentum back toward the nose instead of deleting it.
+    const targetSlip = car.drifting ? -Math.sign(car.steeringAngle) * steeringStrength * 0.42 : 0;
+    car.driftSlip = (car.driftSlip ?? 0) + (targetSlip - (car.driftSlip ?? 0)) * (1 - Math.exp(-(car.drifting ? 10 : 16) * dt));
+    if (Math.abs(car.driftSlip) < 0.0001) car.driftSlip = 0;
+    lateralSpeed = Math.sin(car.driftSlip) * forwardSpeed;
+    forwardSpeed *= Math.cos(car.driftSlip);
+  }
   const angle = (car.heading + wheelHeadingOffset) * Math.PI / 180;
   car.velocityX = Math.sin(angle) * forwardSpeed + Math.cos(angle) * lateralSpeed;
   car.velocityZ = -Math.cos(angle) * forwardSpeed + Math.sin(angle) * lateralSpeed;

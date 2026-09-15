@@ -106,7 +106,7 @@ export function HostScreen({ roomId, onPhaseChange }) {
   return (
     <TvStage>
       {screen}
-      <BackgroundMusic racing={room?.phase === "racing" || room?.phase === "finished"} />
+      <BackgroundMusic racing={room?.phase === "racing"} results={room?.phase === "finished"} />
       <ErrorBanner message={error} onClose={clearError} />
       {room && <ConnectionBadge connection={connection} />}
     </TvStage>

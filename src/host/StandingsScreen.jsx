@@ -1,69 +1,36 @@
-import { formatRaceResult, kartNameFor, ordinal } from "../lib/format.js";
-import { roundDots, roundsIn, tally } from "../lib/standings.js";
-import { Avatar, Pill, RoundDot, StickerButton } from "../components/primitives.jsx";
+import { lazy, Suspense } from "react";
+import { ordinal } from "../lib/format.js";
+import { tally } from "../lib/standings.js";
+import { StickerButton } from "../components/primitives.jsx";
 
-export function StandingsScreen({ room, history, hostAction }) {
+const RaceView = lazy(() => import("../RaceView.jsx"));
+
+export function StandingsScreen({ room, history, hostAction, final = false }) {
   const rows = tally(history, room);
-  const rounds = roundsIn(history).slice(-4);
-  const dots = roundDots(room);
-  const gridTemplateColumns = `110px 1fr ${rounds.map(() => "210px").join(" ")} 180px`;
-  const dense = rows.length > 4;
-
   return (
-    <div className="tv-screen tv-standings">
-      <header className="tv-standings__header">
-        <div className="tv-standings__title-block">
-          <Pill tone="red" className="tv-pill tv-pill--loose">Round {room.roundNumber} · complete</Pill>
-          <h1 className="tv-standings__title">STANDINGS</h1>
-        </div>
-        <div className="tv-round-dots">
-          {dots.map((dot) => <RoundDot key={dot.n} state={dot.state}>{dot.n}</RoundDot>)}
-        </div>
-      </header>
-
-      <div className="tv-standings__table">
-        <div className="tv-standings__columns" style={{ gridTemplateColumns }}>
-          <span>POS</span>
-          <span>PLAYER</span>
-          {rounds.map((round) => <span key={round}>R{round} TIME</span>)}
-          <span className="tv-standings__columns--right">POINTS</span>
-        </div>
-        {rows.map((player, index) => (
-          <div
-            className={`tv-standings__row ${index === 0 ? "tv-standings__row--leader" : ""} ${dense ? "tv-standings__row--dense" : ""}`}
-            style={{ gridTemplateColumns }}
-            key={player.id}
-          >
-            <span className="tv-standings__pos">{ordinal(index + 1)}</span>
-            <div className="tv-standings__player">
-              <Avatar identity={player.identity} size={dense ? 48 : 62} fontSize={dense ? 22 : 28}>
-                {player.badge}
-              </Avatar>
-              <div className="tv-standings__player-text">
-                <span className="tv-standings__name">{player.name}</span>
-                <span className="tv-standings__kart">{kartNameFor(player)}</span>
-              </div>
-            </div>
-            {rounds.map((round) => (
-              <span className="tv-standings__time" key={round}>
-                {formatRaceResult(player.results[round] ?? null)}
-              </span>
-            ))}
-            <span className="tv-standings__points">{player.points}</span>
-          </div>
-        ))}
-      </div>
-
-      <footer className="tv-standings__footer">
-        <span className="tv-standings__footer-text">
-          Open the pit: one message per kart, then race again.
-        </span>
-        {hostAction ? (
-          <StickerButton className="tv-button" type="button" disabled={hostAction.disabled} onClick={hostAction.run}>
-            {hostAction.label}
-          </StickerButton>
-        ) : null}
-      </footer>
+    <div className="tv-screen tv-results">
+      <Suspense fallback={null}>
+        <RaceView room={room} view="results" currentPlayerId={rows[0]?.id} className="tv-results__background" />
+      </Suspense>
+      <section className="tv-results__panel" aria-label="Leaderboard">
+        <img className="tv-results__logo" src="/images/game-logo.svg" alt="Kaaaaart" width="642" height="55" />
+        <header>
+          <p className="tv-results__round">{final ? "Final standings" : `Round ${room.roundNumber} complete`}</p>
+          <h1>{final && rows[0] ? `${rows[0].name} wins!` : "Standings"}</h1>
+        </header>
+        <ol className="tv-results__list">
+          {rows.map((player, index) => (
+            <li className={index === 0 ? "tv-results__leader" : ""} key={player.id}>
+              <span className="tv-results__rank">{ordinal(index + 1)}</span>
+              <span className="tv-results__color" style={{ background: player.identity.color }} />
+              <span className="tv-results__name">{player.name}</span>
+              <span className="tv-results__points">{player.points}<small>PTS</small></span>
+            </li>
+          ))}
+        </ol>
+        {hostAction && <StickerButton className="tv-button" type="button" disabled={hostAction.disabled} onClick={hostAction.run}>{hostAction.label}</StickerButton>}
+        {final && <StickerButton as="a" className="tv-button" href="/">NEW ROOM</StickerButton>}
+      </section>
     </div>
   );
 }

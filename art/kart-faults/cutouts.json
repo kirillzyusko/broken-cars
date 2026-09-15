@@ -1,0 +1,326 @@
+{
+  "no_wheels": {
+    "sheetRect": [
+      0,
+      0,
+      294,
+      319
+    ],
+    "trimRect": [
+      23,
+      73,
+      273,
+      305
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "square_wheels": {
+    "sheetRect": [
+      294,
+      0,
+      574,
+      319
+    ],
+    "trimRect": [
+      22,
+      77,
+      265,
+      307
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "loose_wheel": {
+    "sheetRect": [
+      574,
+      0,
+      883,
+      319
+    ],
+    "trimRect": [
+      17,
+      64,
+      292,
+      306
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_engine": {
+    "sheetRect": [
+      883,
+      0,
+      1174,
+      319
+    ],
+    "trimRect": [
+      18,
+      68,
+      270,
+      299
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_brakes": {
+    "sheetRect": [
+      1174,
+      0,
+      1484,
+      319
+    ],
+    "trimRect": [
+      21,
+      70,
+      297,
+      302
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_cooling": {
+    "sheetRect": [
+      1484,
+      0,
+      1774,
+      319
+    ],
+    "trimRect": [
+      14,
+      23,
+      271,
+      310
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_steering": {
+    "sheetRect": [
+      0,
+      319,
+      284,
+      580
+    ],
+    "trimRect": [
+      28,
+      9,
+      272,
+      245
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_seatbelt": {
+    "sheetRect": [
+      284,
+      319,
+      590,
+      580
+    ],
+    "trimRect": [
+      13,
+      50,
+      290,
+      245
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "swapped_pedals": {
+    "sheetRect": [
+      590,
+      319,
+      874,
+      580
+    ],
+    "trimRect": [
+      15,
+      23,
+      260,
+      241
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "reversed_steering": {
+    "sheetRect": [
+      874,
+      319,
+      1178,
+      580
+    ],
+    "trimRect": [
+      24,
+      18,
+      283,
+      245
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "one_way_steering_left": {
+    "sheetRect": [
+      1178,
+      319,
+      1486,
+      580
+    ],
+    "trimRect": [
+      24,
+      18,
+      290,
+      245
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "backwards_engine": {
+    "sheetRect": [
+      1486,
+      319,
+      1774,
+      580
+    ],
+    "trimRect": [
+      20,
+      11,
+      259,
+      259
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "bad_engine_power_overpowered": {
+    "sheetRect": [
+      0,
+      580,
+      310,
+      887
+    ],
+    "trimRect": [
+      26,
+      3,
+      301,
+      255
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "stuck_accelerator": {
+    "sheetRect": [
+      310,
+      580,
+      566,
+      887
+    ],
+    "trimRect": [
+      9,
+      19,
+      235,
+      252
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "no_grip": {
+    "sheetRect": [
+      566,
+      580,
+      881,
+      887
+    ],
+    "trimRect": [
+      15,
+      16,
+      307,
+      258
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "sideways_wheels": {
+    "sheetRect": [
+      881,
+      580,
+      1177,
+      887
+    ],
+    "trimRect": [
+      9,
+      9,
+      280,
+      252
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "one_way_steering_right": {
+    "sheetRect": [
+      1177,
+      580,
+      1480,
+      887
+    ],
+    "trimRect": [
+      17,
+      17,
+      282,
+      244
+    ],
+    "size": [
+      256,
+      256
+    ]
+  },
+  "bad_engine_power_weak": {
+    "sheetRect": [
+      1480,
+      580,
+      1774,
+      887
+    ],
+    "trimRect": [
+      20,
+      21,
+      277,
+      248
+    ],
+    "size": [
+      256,
+      256
+    ]
+  }
+}
