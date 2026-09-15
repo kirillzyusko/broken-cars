@@ -1,13 +1,9 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { IntroAudioContext } from "./intro-audio-context.js";
 
-export default function BackgroundMusic({ racing = false, showControl = true }) {
+export default function BackgroundMusic({ racing = false }) {
   const introPlaying = useContext(IntroAudioContext);
   const audioRef = useRef(null);
-  const [muted, setMuted] = useState(() => {
-    try { return localStorage.getItem("broken-cars-music-muted") === "true"; }
-    catch { return false; }
-  });
 
   const source = racing ? "/audio/retro-roundabout.mp3" : "/audio/choose-your-racer.mp3";
 
@@ -18,9 +14,7 @@ export default function BackgroundMusic({ racing = false, showControl = true }) 
     audio.loop = true;
     audio.volume = 0.35;
     audio.preload = "auto";
-    try { localStorage.setItem("broken-cars-music-muted", String(muted)); }
-    catch { /* Music still works when storage is unavailable. */ }
-    if (muted || introPlaying) {
+    if (introPlaying) {
       audio.pause();
       return;
     }
@@ -38,14 +32,7 @@ export default function BackgroundMusic({ racing = false, showControl = true }) 
       window.removeEventListener("keydown", play);
       audio.pause();
     };
-  }, [muted, source, introPlaying]);
+  }, [source, introPlaying]);
 
-  if (!showControl) return null;
-
-  return (
-    <button className="music-toggle" type="button" aria-label={muted ? "Enable background music" : "Mute background music"}
-      aria-pressed={!muted} onClick={() => setMuted((value) => !value)}>
-      Music {muted ? "off" : "on"}
-    </button>
-  );
+  return null;
 }

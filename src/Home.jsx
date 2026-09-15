@@ -26,7 +26,7 @@ export function Home() {
 
   return (
     <main className="home">
-      <BackgroundMusic showControl={false} />
+      <BackgroundMusic />
       <MenuMapBackground />
       <div className="home__shade" aria-hidden="true" />
       <section className="home__card">
