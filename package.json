@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.js",
-    "dev:fast": "BUILD_DURATION_MS=15000 TUNING_DURATION_MS=15000 START_COUNTDOWN_MS=1000 MAX_RACE_DURATION_MS=10000 node --env-file-if-exists=.env server/index.js",
+    "dev:fast": "OPENAI_MODEL=gpt-5.6-luna ENABLE_BROKEN_PARTS=true LLM_PROVIDER=openai OPENAI_API_KEY=KEY BUILD_DURATION_MS=15000 TUNING_DURATION_MS=15000 START_COUNTDOWN_MS=1000 MAX_RACE_DURATION_MS=10000 node --env-file-if-exists=.env server/index.js",
     "build": "vite build",
     "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.js",
     "test": "node --test",

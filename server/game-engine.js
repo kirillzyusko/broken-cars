@@ -10,7 +10,7 @@ import {
   obstaclePositionToWorld,
   obstacleSizeToWorld,
 } from "../shared/race-config.js";
-import { DEFECTS, isGenericRepairRequest } from "./defects.js";
+import { DEFECTS } from "./defects.js";
 
 export { TRACK_LENGTH_METERS };
 export const BUILD_DURATION_MS = 15_000;
@@ -832,9 +832,7 @@ export class GameEngine {
         ? repairs[player.id]
         : typeof repairs[player.id] === "string" ? [repairs[player.id]] : [];
       const current = new Set(player.car.defectIds);
-      player.lastRepairIds = isGenericRepairRequest(player.tuningPrompt)
-        ? []
-        : [...new Set(suggested.filter((id) => current.has(id)))];
+      player.lastRepairIds = [...new Set(suggested.filter((id) => current.has(id)))];
       player.lastRepairId = player.lastRepairIds[0] ?? null;
       const repaired = new Set(player.lastRepairIds);
       player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));

@@ -22,7 +22,7 @@ ENABLE_BROKEN_PARTS=true
 
 The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed. Car prompts are sent to OpenAI only when `LLM_PROVIDER=openai` is enabled. Explicit requirements are treated as hard constraints, so a player asking for round wheels cannot receive square or missing wheels. The server also minimizes repeated defects across players in the same room. If the API fails, the build stays open and the host sees an error instead of silently assigning potentially conflicting defects.
 
-Tuning reports use the same selector. A concrete symptom such as `it slides like ice` can repair `no_grip`, and one message can repair several current defects when it clearly identifies each of them. A generic request such as `make the car fully working` repairs nothing. The server validates every returned ID against the car's current defect set, removes duplicates, and never reintroduces repaired drawbacks in later rounds.
+Tuning reports are always interpreted by OpenAI; there is no regex or local repair fallback. Set `LLM_PROVIDER=openai` and `OPENAI_API_KEY`, otherwise the host receives an explicit configuration error and the race does not advance. A concrete symptom such as `it slides like ice` can repair `no_grip`, and one message can repair several current defects when it clearly identifies each of them. A generic request such as `make the car fully working` repairs nothing. The server validates every returned ID against the car's current defect set, removes duplicates, and never reintroduces repaired drawbacks in later rounds.
 
 ## Client
 

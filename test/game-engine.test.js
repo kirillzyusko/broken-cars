@@ -555,7 +555,7 @@ test("each tuning round permanently repairs every specifically reported current 
   assert.equal(room.phase, "countdown");
 });
 
-test("generic requests cannot repair defects even if a selector suggests one", async () => {
+test("the engine applies the LLM decision without locally parsing the prompt", async () => {
   const engine = new GameEngine({
     buildDurationMs: 1,
     tuningDurationMs: 10,
@@ -591,10 +591,10 @@ test("generic requests cannot repair defects even if a selector suggests one", a
   const player = room.players.get("player-1");
   assert.deepEqual(
     player.car.defectIds,
-    ["no_brakes", "reversed_steering", "no_grip"],
+    ["reversed_steering"],
   );
-  assert.equal(player.lastRepairId, null);
-  assert.deepEqual(player.lastRepairIds, []);
+  assert.equal(player.lastRepairId, "no_brakes");
+  assert.deepEqual(player.lastRepairIds, ["no_brakes", "no_grip"]);
 });
 
 test("host snapshots never reveal private tuning prompts", async () => {

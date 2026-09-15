@@ -224,4 +224,5 @@ if (isProduction) {
 server.listen(port, "0.0.0.0", () => {
   console.log(`Broken Cars host: http://localhost:${port}`);
   console.log(`Phone join network: http://${localNetworkAddress()}:${port}`);
+  console.log(`Garage: ${game.selectorName()}`);
 });
