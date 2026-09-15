@@ -141,6 +141,36 @@ test("steering turns the front wheels but cannot slide a stationary car", async 
   assert.ok(car.lane > 0);
 });
 
+test("standard kart grip recenters cleanly without drifting or jumping", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1 });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-1", "Grip-test kart", 1_000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  room.startsAt = 2_000;
+  room.lastTickAt = 2_000;
+  room.raceEndsAt = 100_000;
+  engine.tick(2_000);
+
+  engine.setControls(room.id, "player-1", { accelerate: true });
+  for (let now = 2_050; now <= 3_200; now += 50) engine.tick(now);
+  engine.setControls(room.id, "player-1", { accelerate: true, right: true });
+  for (let now = 3_250; now <= 3_600; now += 50) engine.tick(now);
+
+  const car = room.players.get("player-1").car;
+  const headingDuringTurn = car.heading;
+  assert.ok(headingDuringTurn > 0);
+
+  engine.setControls(room.id, "player-1", { accelerate: true });
+  for (let now = 3_650; now <= 4_350; now += 50) engine.tick(now);
+  const velocityHeading = Math.atan2(car.velocityX, car.velocityZ) * 180 / Math.PI;
+
+  assert.ok(Math.abs(car.heading) < Math.abs(headingDuringTurn));
+  assert.ok(Math.abs(car.heading - velocityHeading) < 2, "high grip should prevent a sustained slide");
+  assert.equal("velocityY" in car, false);
+});
+
 test("two players see synchronized acceleration and opposite steering movement", async () => {
   const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);

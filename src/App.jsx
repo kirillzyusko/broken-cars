@@ -360,7 +360,7 @@ function Host({ roomId }) {
           </button>
           <small>
             {standardRacing
-              ? "Driving mode: standard physics"
+              ? "Driving mode: arcade kart · no drift or jumps"
               : `Defect selector: ${room?.selectorName ?? "—"}`}
           </small>
         </section>
@@ -685,7 +685,7 @@ function Player({ roomId }) {
             </p>
           ) : null}
           {standardRacing ? (
-            <p className="fully-tuned">✓ Standard engine, brakes and steering</p>
+            <p className="fully-tuned">✓ Arcade kart grip · no drift or jumps</p>
           ) : (
             <DefectList car={me.car} />
           )}
