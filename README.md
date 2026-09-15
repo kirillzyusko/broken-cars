@@ -68,6 +68,10 @@ The game loads `public/maps/corsica-gp/visual.glb` and `collision.glb` through P
 
 The collision GLB contains 40 static triangle meshes with 253,414 triangles. Terrain, road, curbs, trees, rocks, gantry supports and solid props collide. Flowers, grass, plants, mushrooms, ground patches, water, lettering and road paint have no colliders. The runtime keeps collision meshes hidden and adds PlayCanvas mesh collision and static rigidbody components. Original Kenney licenses ship with the map.
 
+The ocean uses `src/race-water.js` for animated texture distortion, two layers of curved highlights, and a subtle sky reflection. `src/water-textures.js` generates seamless patterns locally. The effect follows the texture-coordinate distortion approach in [DragoniteSpam's ShaderWaterTexture](https://github.com/DragoniteSpam-GameMaker-Tutorials/ShaderWaterTexture), with original procedural textures. It changes only the material: the ocean stays flat, opaque, and without a collider.
+
+The sky uses Kenney's day panorama from `public/skyboxes/skybox-day.png`, converted to a cubemap by PlayCanvas. Its CC0 license ships beside the image.
+
 Coordinates use meters, Y up, and negative Z forward at the start line. Server race distance follows the exported centerline through one 500-meter lap. Steering moves across the road and the cameras follow the corners. Grid positions begin behind the gantry.
 
 **Vehicle motion still uses the existing server distance/lane simulation.** Client cars have kinematic bodies. Static map collisions support physics objects and camera obstruction checks, but do not replace the server simulation with free-driving vehicle physics.

@@ -1,5 +1,7 @@
 import * as pc from "playcanvas";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
+import { loadRaceSkybox } from "./race-skybox.js";
+import { createRaceWater } from "./race-water.js";
 import { CAR_HEIGHT, carWorldTransform, smoothingFactor } from "./race-scene-model.js";
 import track from "./corsica-track.json" with { type: "json" };
 
@@ -29,16 +31,22 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   app.start();
   const scene = {
     app, camera, view, currentPlayerId, carStates: new Map(), materials: [],
-    map: null, cameraPlaced: false,
+    map: null, skybox: null, water: null, cameraPlaced: false,
     destroy() {
+      app.scene.skybox = null;
+      scene.skybox?.destroy();
       app.destroy();
+      scene.water?.destroy();
       scene.materials.forEach((m) => m.destroy());
     },
   };
   try {
     onStatus("Loading Corsica GP…");
+    scene.skybox = await loadRaceSkybox(app, isCancelled);
+    if (isCancelled()) { scene.destroy(); return null; }
     scene.map = await loadCorsicaMap(app, isCancelled);
     if (isCancelled()) { scene.destroy(); return null; }
+    scene.water = createRaceWater(app, scene.map.visual, scene.skybox);
     app.on("update", (dt) => updateScene(scene, Math.min(dt, 0.1)));
     updateScene(scene, 0);
     onStatus("");
@@ -85,6 +93,7 @@ export function syncCars(scene, cars) {
 }
 
 function updateScene(scene, dt) {
+  scene.water?.update(dt);
   const blend = smoothingFactor(dt);
   for (const state of scene.carStates.values()) {
     state.distance = pc.math.lerp(state.distance, state.car.distance, blend);
