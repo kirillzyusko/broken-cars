@@ -21,6 +21,13 @@ export function formatLapTime(milliseconds) {
   return `${minutes}:${seconds.toFixed(1).padStart(4, "0")}`;
 }
 
+/** A finisher shows a lap time; a kart placed while still on track shows how far it got. */
+export function formatRaceResult(result) {
+  if (!result) return "DNF";
+  if (result.finishedAtMs !== null && result.finishedAtMs !== undefined) return formatLapTime(result.finishedAtMs);
+  return Number.isFinite(result.distance) ? `${Math.round(result.distance)} M` : "DNF";
+}
+
 /** Forward is negative Z at heading 0; a negative forward speed means reversing. */
 export function isReversing(car) {
   if (!car) return false;
