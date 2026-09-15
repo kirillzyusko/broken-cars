@@ -1,3 +1,4 @@
+import { unlockKartAudio } from "./kart-audio-context.js";
 import manifest from "../public/audio/kart/manifest.json" with { type: "json" };
 import { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 
@@ -187,10 +188,8 @@ export function createKartAudio() {
   const controller = new AbortController();
   const unlock = () => {
     if (disposed || document.hidden || performance.now() < retryAt) return;
-    const AudioContext = window.AudioContext ?? window.webkitAudioContext;
-    if (!AudioContext) return;
-    context ??= new AudioContext({ latencyHint: "interactive" });
-    context.resume().catch(() => {});
+    context = unlockKartAudio();
+    if (!context) return;
     loading ??= Promise.all(Object.entries(manifest.samples).map(async ([name, sample]) => {
       const response = await fetch(sample.url, { signal: controller.signal });
       if (!response.ok) throw new Error(`Could not load kart sound: ${name}`);
@@ -208,10 +207,14 @@ export function createKartAudio() {
     if (event.code === "KeyM") muted = !muted;
     if (event.code === "KeyH" && active && !muted) mixer?.oneShot("horn", "local:horn", 0.3, 0, 0.3);
   };
-  const visibility = () => { if (document.hidden) context?.suspend().catch(() => {}); };
-  window.addEventListener("pointerdown", unlock);
+  const visibility = () => {
+    if (document.hidden) context?.suspend().catch(() => {});
+    else unlock();
+  };
+  window.addEventListener("click", unlock);
   window.addEventListener("keydown", keyDown);
   document.addEventListener("visibilitychange", visibility);
+  unlock();
   return {
     startSignal(id, signal) {
       if (id !== lastStartId) { lastStartId = id; lastStep = 0; }
@@ -227,11 +230,11 @@ export function createKartAudio() {
     dispose() {
       disposed = true;
       controller.abort();
-      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("click", unlock);
       window.removeEventListener("keydown", keyDown);
       document.removeEventListener("visibilitychange", visibility);
       mixer?.dispose();
-      context?.close().catch(() => {});
+      // The next race reuses the context already unlocked by the host.
     },
   };
 }
