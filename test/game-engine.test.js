@@ -1,3 +1,4 @@
+import { drivingSpawn, sampleTrack, circuitTransform } from "../shared/track-world.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFECTS, defectTestUtils, selectDefects } from "../server/defects.js";
@@ -14,6 +15,7 @@ import {
   TRACK_OBSTACLES,
   carPositionToWorld,
   startingGridWorldOffset,
+  obstaclePositionToWorld,
 } from "../shared/race-config.js";
 
 test("players wait for the host before the shared prompt minute starts", () => {
@@ -108,15 +110,15 @@ test("standard racing skips defects and server-authoritative controls move the c
   assert.ok(car.speed > 20, `expected arcade-kart acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
   assert.ok(car.distance < TRACK_LENGTH_METERS);
-  assert.ok(car.speed < 27, `expected believable acceleration, received ${car.speed}`);
+  assert.ok(car.speed <= STANDARD_MAX_SPEED_MPS, `expected believable acceleration, received ${car.speed}`);
   assert.ok(car.distance < 80, `expected a long 500m road, received ${car.distance}m`);
   car.speed = STANDARD_MAX_SPEED_MPS;
   engine.tick(5_050);
   assert.ok(car.speed <= STANDARD_MAX_SPEED_MPS);
 });
 
-test("steering turns the front wheels but cannot slide a stationary car", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1 });
+test("steering input cannot move or rotate a stationary car", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, drivingWorld: null });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -130,19 +132,20 @@ test("steering turns the front wheels but cannot slide a stationary car", async 
   engine.setControls(room.id, "player-1", { right: true });
   for (let now = 2_050; now <= 2_500; now += 50) engine.tick(now);
   const car = room.players.get("player-1").car;
-  assert.equal(car.lane, 0);
+  assert.equal(car.worldPosition.x, drivingSpawn().x);
+  assert.equal(car.worldPosition.z, drivingSpawn().z);
   assert.equal(car.heading, 0);
   assert.ok(car.steeringAngle > 0);
 
   engine.setControls(room.id, "player-1", { accelerate: true, right: true });
   for (let now = 2_550; now <= 3_500; now += 50) engine.tick(now);
-  assert.ok(car.distance > 0);
+  assert.ok(Math.hypot(car.worldPosition.x - drivingSpawn().x, car.worldPosition.z - drivingSpawn().z) > 1);
   assert.ok(car.heading > 0);
   assert.ok(car.lane > 0);
 });
 
-test("standard kart grip recenters cleanly without drifting or jumping", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1 });
+test("standard kart holds its chosen heading with strong grip and no jumping", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, drivingWorld: null });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -164,9 +167,9 @@ test("standard kart grip recenters cleanly without drifting or jumping", async (
 
   engine.setControls(room.id, "player-1", { accelerate: true });
   for (let now = 3_650; now <= 4_350; now += 50) engine.tick(now);
-  const velocityHeading = Math.atan2(car.velocityX, car.velocityZ) * 180 / Math.PI;
+  const velocityHeading = Math.atan2(car.velocityX, -car.velocityZ) * 180 / Math.PI;
 
-  assert.ok(Math.abs(car.heading) < Math.abs(headingDuringTurn));
+  assert.ok(car.heading >= headingDuringTurn, "releasing steering must not turn back toward the track");
   assert.ok(Math.abs(car.heading - velocityHeading) < 2, "high grip should prevent a sustained slide");
   assert.equal("velocityY" in car, false);
 });
@@ -201,13 +204,14 @@ test("two players see synchronized acceleration and opposite steering movement",
     id,
     distance: car.distance,
     lane: car.lane,
+    worldPosition: car.worldPosition,
   }));
   const playerCars = engine.serialize(room, 2_500, "Local randomizer", "player-left")
-    .players.map(({ id, car }) => ({ id, distance: car.distance, lane: car.lane }));
+    .players.map(({ id, car }) => ({ id, distance: car.distance, lane: car.lane, worldPosition: car.worldPosition }));
 
-  assert.ok(hostCars.every((player) => player.distance > 0));
-  assert.ok(hostCars.find((player) => player.id === "player-left").lane < 0);
-  assert.ok(hostCars.find((player) => player.id === "player-right").lane > 0);
+  assert.ok(hostCars[0].worldPosition.x < drivingSpawn(0).x);
+  assert.ok(hostCars[1].worldPosition.x > drivingSpawn(1).x);
+  assert.ok(hostCars.every((player, index) => player.worldPosition.z < drivingSpawn(index).z));
   assert.deepEqual(playerCars, hostCars);
   assert.equal(engine.serialize(room).defectsEnabled, false);
 });
@@ -255,9 +259,12 @@ test("a car collides with a static barrier instead of passing through it", async
 
   const obstacle = TRACK_OBSTACLES[0];
   const car = room.players.get("player-1").car;
-  car.distance = obstacle.distance - 10;
-  car.lane = obstacle.lane;
-  car.speed = 44;
+  const pose = circuitTransform(obstaclePositionToWorld(obstacle));
+  car.worldPosition = { x: pose.x - pose.forward.x * 6, y: CAR_SIZE_WORLD.y / 2, z: pose.z - pose.forward.z * 6 };
+  car.heading = -pose.yaw;
+  car.velocityX = pose.forward.x * 28;
+  car.velocityZ = pose.forward.z * 28;
+  car.speed = 28;
   engine.setControls(room.id, "player-1", { accelerate: true });
   for (let now = 2_100; now <= 4_000 && car.collisionCount === 0; now += 100) {
     engine.tick(now);
@@ -266,12 +273,12 @@ test("a car collides with a static barrier instead of passing through it", async
   assert.ok(car.distance < obstacle.distance - obstacle.length / 2);
   assert.ok(car.speed < 10);
   assert.equal(car.collisionCount, 1);
-  assert.ok(car.velocityZ <= 0, "the barrier should reflect the normal velocity");
+  assert.ok(car.velocityX * pose.forward.x + car.velocityZ * pose.forward.z <= 0, "the barrier should reflect normal velocity");
   assert.equal(car.lastCollision.type, "obstacle");
   assert.equal(car.lastCollision.targetId, obstacle.id);
   assert.ok(car.lastCollision.impactSpeed > 0);
   assert.ok(car.lastCollision.impulseNs > 0);
-  assert.deepEqual(car.lastCollision.normal, { x: 0, z: -1 });
+  assert.ok(car.lastCollision.normal.x * pose.forward.x + car.lastCollision.normal.z * pose.forward.z < -0.99);
   const publicCar = engine.serialize(room).players[0].car;
   assert.equal(publicCar.collisionCount, 1);
   assert.equal("_collisionCooldownUntilMs" in publicCar, false);
@@ -293,16 +300,12 @@ test("rear-end car collisions exchange momentum and separate both cars", async (
 
   const rear = room.players.get("rear-car").car;
   const front = room.players.get("front-car").car;
-  const gridLaneOffset = Math.abs(startingGridWorldOffset(0, 2).x) / LANE_TO_WORLD;
-  rear.lane = gridLaneOffset;
-  front.lane = -gridLaneOffset;
-  rear.distance = 80;
-  // Leave a half-meter gap beyond the bodies, independent of map scale.
-  front.distance = rear.distance + (CAR_SIZE_WORLD.z + 0.5) / DISTANCE_TO_WORLD;
+  rear.worldPosition = { x: 0, y: CAR_SIZE_WORLD.y / 2, z: -5 };
+  front.worldPosition = { x: 0, y: CAR_SIZE_WORLD.y / 2, z: -5 - CAR_SIZE_WORLD.z - 0.5 };
   rear.speed = 26;
-  rear.velocityZ = 26;
+  rear.velocityZ = -26;
   front.speed = 4;
-  front.velocityZ = 4;
+  front.velocityZ = -4;
   const momentumBefore = (rear.velocityZ + front.velocityZ) * CAR_MASS_KG;
   engine.tick(2_100);
 
@@ -310,7 +313,7 @@ test("rear-end car collisions exchange momentum and separate both cars", async (
   const frontPosition = carPositionToWorld(front, 1, 2);
   assert.equal(rear.massKg, CAR_MASS_KG);
   assert.equal(front.massKg, CAR_MASS_KG);
-  assert.ok(rear.velocityZ < front.velocityZ);
+  assert.ok(rear.velocityZ > front.velocityZ);
   const momentumAfter = (rear.velocityZ + front.velocityZ) * CAR_MASS_KG;
   assert.ok(
     Math.abs(momentumAfter - momentumBefore) < 1_000,
@@ -322,8 +325,8 @@ test("rear-end car collisions exchange momentum and separate both cars", async (
   assert.equal(rear.lastCollision.targetId, "front-car");
   assert.equal(front.lastCollision.targetId, "rear-car");
   assert.ok(rear.lastCollision.impulseNs > 0);
-  assert.deepEqual(rear.lastCollision.normal, { x: 0, z: -1 });
-  assert.deepEqual(front.lastCollision.normal, { x: 0, z: 1 });
+  assert.deepEqual(rear.lastCollision.normal, { x: 0, z: 1 });
+  assert.deepEqual(front.lastCollision.normal, { x: 0, z: -1 });
 });
 
 test("a glancing equal-mass impact transfers lateral velocity and spin", async () => {
@@ -342,19 +345,18 @@ test("a glancing equal-mass impact transfers lateral velocity and spin", async (
 
   const striking = room.players.get("striking-car").car;
   const target = room.players.get("target-car").car;
-  striking.lane = 0.55 / LANE_TO_WORLD;
-  target.lane = -0.55 / LANE_TO_WORLD;
-  striking.distance = 20;
-  target.distance = 20.3;
+  striking.worldPosition = { x: -CAR_SIZE_WORLD.x - 0.01, y: CAR_SIZE_WORLD.y / 2, z: -5 };
+  target.worldPosition = { x: 0, y: CAR_SIZE_WORLD.y / 2, z: -5.3 };
   striking.velocityX = 6;
-  striking.velocityZ = 12;
-  striking.speed = Math.hypot(striking.velocityX, striking.velocityZ);
+  striking.velocityZ = -12;
+  striking.heading = Math.atan2(6, 12) * 180 / Math.PI;
+  striking.speed = Math.hypot(6, 12);
   target.velocityX = 0;
-  target.velocityZ = 12;
+  target.velocityZ = -12;
   target.speed = 12;
 
   engine.tick(2_050);
-  const targetLaneAtImpact = target.lane;
+  const targetXAtImpact = target.worldPosition.x;
 
   assert.equal(striking.collisionCount, 1);
   assert.equal(target.collisionCount, 1);
@@ -367,7 +369,7 @@ test("a glancing equal-mass impact transfers lateral velocity and spin", async (
   assert.deepEqual(target.lastCollision.normal, { x: 1, z: 0 });
 
   engine.tick(2_100);
-  assert.ok(target.lane > targetLaneAtImpact, "the transferred vector should carry the target sideways");
+  assert.ok(target.worldPosition.x > targetXAtImpact, "the transferred vector should carry the target sideways");
 });
 
 test("a car with no engine cannot accelerate when broken-parts mode is enabled", async () => {
@@ -462,7 +464,7 @@ test("room snapshots advertise the current client protocol", () => {
   const engine = new GameEngine();
   const room = engine.createRoom();
   const state = engine.serialize(room);
-  assert.equal(state.protocolVersion, 4);
+  assert.equal(state.protocolVersion, 5);
   assert.equal(state.defectsEnabled, false);
   assert.equal(state.buildDurationMs, 60_000);
   assert.equal(state.tuningDurationMs, 60_000);

@@ -31,7 +31,7 @@ Tuning reports use the same selector. A concrete symptom such as `it slides like
 - Express serves rooms and the web client from one LAN-accessible port.
 - WebSockets carry room state, prompt submissions, and live control intent.
 - `server/game.js` exports one framework-independent `BrokenCarsGame` object. It owns the complete public integration surface: rooms, prompts, races, tuning, repairs, controls, ticks, and privacy-filtered snapshots.
-- `server/game-engine.js` runs the state machine, arcade driving model, swept collision detection, and impulse response. Velocity and heading use track-relative coordinates: forward along the circuit and sideways across it. Car contacts use axis-aligned boxes in that space, with restitution and friction.
+- `server/game-engine.js` runs the state machine, arcade driving model, swept collision detection, and impulse response. Velocity and heading use world coordinates. Car contacts use world-space bounds adjusted for heading, with restitution and friction.
 - `shared/race-config.js` shares the map scale, road width, grid, car sizes, and barriers between server physics and rendering. The renderer wraps those coordinates onto the exported centerline and adds steering and impact yaw to the track direction.
 - OpenAI/local selectors are injected into `BrokenCarsGame`, so tests and future transports can replace them without touching game rules.
 - WebSockets are only a transport adapter. React consumes snapshots and calls semantic actions from `useGameSocket` (`startBuild`, `submitCarPrompt`, `startRace`, `startTuning`, `submitRepair`, `startNextRace`, `setControls`). A UI redesign does not need to know packet shapes.
@@ -64,7 +64,11 @@ npm run check    # tests and production build
 
 ## Corsica GP map
 
-The [kart driving test](http://localhost:3001/map/drive) shows only the circuit and the round-wheel kart from a chase camera. Use WASD or arrow keys to drive, Space to brake, and R to reset. It runs locally without a room, timer, HUD, or background music. This test uses a simple local driving model, not the multiplayer collision solver. The canvas emits `kart-audio-state` events with speed in meters per second, throttle, brake, steering, and an estimated RPM for sound development. No engine sound is wired up yet.
+The [kart driving test](http://localhost:3001/map/drive) uses the same free driving code as multiplayer, with world positions and a chase camera that follows the kart's heading. WASD or arrow keys drive; hold S/down to brake, then reverse; Space only brakes; R resets the sandbox. Acceleration is quick, steering tightens at low speed, and releasing steering holds the chosen direction. There is no drift or jump input, and the kart keeps its existing Idle animation.
+
+See [driving feel](docs/driving-feel.md) for the Mario Kart research, handling choices, and measured changes to steering and acceleration.
+
+Both modes run `shared/kart-driving.js` at 120 steps per second and use the exported map collision mesh through `shared/driving-world.js`. Grass reduces speed; leaving supported ground returns the kart to its last checkpoint. Multiplayer also resolves car and race-barrier collisions. Ordered checkpoint crossings measure the 500 m lap without constraining movement. Room protocol 5 sends `worldPosition` in metres and a clockwise `heading` in degrees; forward at zero heading is negative Z. Restart the Node server after changing shared driving code.
 
 Open [the graphics test level](http://localhost:3001/map/graphics) for four fixed cameras in a full-screen 2×2 grid. Top left shows the island, top right the start line, bottom left the mountain road at driver height, and bottom right the coast. The page has no HUD, controls, cars, or room connection. All views share one map and the race settings in `src/race-lighting.js`, `src/race-water.js`, and `src/race-skybox.js`. Camera positions live in `src/map-graphics-runtime.js`.
 

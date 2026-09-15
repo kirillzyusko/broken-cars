@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
-import * as pc from "playcanvas";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
-import { CAR_FRONT_AXLE_OFFSET_WORLD, CAR_SIZE_WORLD, LANE_TO_WORLD, clampCarLane } from "../shared/race-config.js";
+import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
+import { resetDriving, updateLapProgress } from "../shared/track-world.js";
+import { createDrivingWorld } from "../shared/driving-world.js";
+import track from "./corsica-track.json" with { type: "json" };
 
 export default function KartDriveTest() {
   const canvasRef = useRef(null);
@@ -10,7 +12,10 @@ export default function KartDriveTest() {
     let cancelled = false;
     let scene;
     const keys = new Set();
-    const drive = { distance: 0, lane: 0, speed: 0, heading: 0, steeringAngle: 0, color: "#f2c94c" };
+    const drive = { color: "#f2c94c", defectIds: [], heat: 0 };
+    resetDriving(drive);
+    let accumulator = 0;
+    let drivingTime = 0;
     const supported = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyR"]);
     const clearKeys = () => keys.clear();
     const keyDown = (event) => {
@@ -18,8 +23,12 @@ export default function KartDriveTest() {
       event.preventDefault();
       keys.add(event.code);
       if (event.code === "KeyR") {
-        Object.assign(drive, { distance: 0, lane: 0, speed: 0, heading: 0, steeringAngle: 0 });
-        if (scene) scene.cameraPlaced = false;
+        if (event.repeat) return;
+        resetDriving(drive);
+        accumulator = 0;
+        if (scene) {
+          scene.cameraPlaced = false;
+        }
       }
     };
     const keyUp = (event) => keys.delete(event.code);
@@ -37,24 +46,33 @@ export default function KartDriveTest() {
     }).then(async (loaded) => {
       if (!loaded) return;
       scene = loaded;
+      const response = await fetch(track.collisionUrl);
+      if (!response.ok) throw new Error("Could not load driving collisions.");
+      const buffer = await response.arrayBuffer();
+      if (cancelled) return;
+      const world = createDrivingWorld(buffer);
       resize();
       publish();
-      scene.app.on("update", (elapsed) => {
-        const dt = Math.min(elapsed, 0.05);
+      scene.updateDriving = (elapsed) => {
         const throttle = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
-        const brake = keys.has("KeyS") || keys.has("ArrowDown") || keys.has("Space") ? 1 : 0;
+        const brake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
+        const stop = keys.has("Space");
         const steering = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
-        drive.speed = pc.math.clamp(drive.speed + (throttle * 11 - brake * 24 - 0.65 - drive.speed * 0.12) * dt, 0, 28);
-        drive.steeringAngle = pc.math.lerp(drive.steeringAngle, steering * 24, 1 - Math.exp(-10 * dt));
-        drive.heading = pc.math.lerp(drive.heading, steering * Math.min(22, drive.speed * 2), 1 - Math.exp(-6 * dt));
-        drive.lane = clampCarLane(drive.lane + Math.sin(drive.heading * Math.PI / 180) * drive.speed / LANE_TO_WORLD * dt);
-        drive.distance += Math.cos(drive.heading * Math.PI / 180) * drive.speed * dt;
+        accumulator += Math.min(elapsed, 0.1);
+        while (accumulator + 1e-9 >= DRIVING_STEP) {
+          const previous = { ...drive.worldPosition };
+          const resetVersion = drive.resetVersion;
+          stepKart(drive, { accelerate: !!throttle, brake: !!brake, stop, left: steering < 0, right: steering > 0 }, DRIVING_STEP, drivingTime, world);
+          if (drive.resetVersion === resetVersion) updateLapProgress(drive, previous);
+          accumulator -= DRIVING_STEP;
+          drivingTime += DRIVING_STEP * 1000;
+        }
         publish();
         // Sound modules can read this event without adding a HUD or room connection.
         canvasRef.current?.dispatchEvent(new CustomEvent("kart-audio-state", { bubbles: true, detail: {
-          speed: drive.speed, throttle, brake, steering, rpm: 1200 + drive.speed / 28 * 6800,
+          speed: drive.speed, throttle, brake: brake || Number(stop), steering, rpm: 1200 + drive.speed / 28 * 6800,
         } }));
-      });
+      };
     }).catch((error) => console.error("Kart driving test failed to load", error));
     return () => {
       cancelled = true;
@@ -66,5 +84,7 @@ export default function KartDriveTest() {
       scene?.destroy();
     };
   }, []);
-  return <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake, A and D or arrow keys to steer, R to reset." />;
+  return <>
+    <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to reset." />
+  </>;
 }

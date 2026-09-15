@@ -1,14 +1,14 @@
+import { stepKart, DRIVING_STEP } from "../shared/kart-driving.js";
+import { resetDriving, updateLapProgress, circuitTransform } from "../shared/track-world.js";
+import { getDrivingWorld } from "./driving-world.js";
 import { randomBytes } from "node:crypto";
 import {
   CAR_SIZE_WORLD,
-  LANE_TO_WORLD,
   TRACK_LENGTH_METERS,
   TRACK_OBSTACLES,
   carPositionToWorld,
   obstaclePositionToWorld,
   obstacleSizeToWorld,
-  clampCarLane,
-  worldPositionToCar,
 } from "../shared/race-config.js";
 import { DEFECTS, isGenericRepairRequest } from "./defects.js";
 
@@ -17,7 +17,7 @@ export const BUILD_DURATION_MS = 60_000;
 export const TUNING_DURATION_MS = 60_000;
 export const START_COUNTDOWN_MS = 3_000;
 export const MAX_RACE_DURATION_MS = 90_000;
-export const STANDARD_MAX_SPEED_MPS = 28;
+export { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 export const CAR_MASS_KG = 1_000;
 
 const CAR_RESTITUTION = 0.2;
@@ -40,6 +40,7 @@ const EMPTY_CONTROLS = Object.freeze({
   brake: false,
   left: false,
   right: false,
+  stop: false,
 });
 const DEFECT_MAP = new Map(DEFECTS.map((defect) => [defect.id, defect]));
 
@@ -60,7 +61,10 @@ function carColor(index) {
 }
 
 function createCar(player, index, defectIds) {
+  const driving = {};
+  resetDriving(driving, index);
   return {
+    ...driving,
     name: player.prompt,
     color: carColor(index),
     defectIds,
@@ -91,6 +95,7 @@ function createCar(player, index, defectIds) {
 }
 
 function resetCarForRace(car) {
+  resetDriving(car, car.spawnIndex);
   car.distance = 0;
   car.speed = 0;
   car.velocityX = 0;
@@ -136,197 +141,18 @@ function publicDefect(car, id) {
   return defect;
 }
 
-function moveToward(value, target, maxDelta) {
-  if (value < target) return Math.min(target, value + maxDelta);
-  return Math.max(target, value - maxDelta);
-}
-
 function updateCarSpeed(car) {
   car.speed = Math.hypot(car.velocityX, car.velocityZ);
 }
 
-function syncVelocityFromSpeed(car) {
-  const velocityMagnitude = Math.hypot(car.velocityX, car.velocityZ);
-  if (Math.abs(velocityMagnitude - car.speed) < 1e-6) return;
-  const headingRadians = car.heading * Math.PI / 180;
-  car.velocityX = Math.sin(headingRadians) * car.speed;
-  car.velocityZ = Math.cos(headingRadians) * car.speed;
-}
-
-function advanceCar(player, dt, raceElapsedMs, index, carCount) {
-  const { car, controls } = player;
-  if (!car || car.finishedAtMs !== null) return;
-
-  syncVelocityFromSpeed(car);
-  const defects = new Set(car.defectIds);
-  let acceleratePressed = controls.accelerate;
-  let brakePressed = controls.brake;
-  if (defects.has("swapped_pedals")) {
-    [acceleratePressed, brakePressed] = [brakePressed, acceleratePressed];
-  }
-  if (defects.has("stuck_accelerator") && acceleratePressed) {
-    car.acceleratorStuck = true;
-  }
-  const wantsAcceleration = acceleratePressed || car.acceleratorStuck;
-
-  let steerInput = (controls.right ? 1 : 0) - (controls.left ? 1 : 0);
-  if (defects.has("reversed_steering")) steerInput *= -1;
-  if (
-    defects.has("one_way_steering")
-    && ((car.oneWayTurn === "left" && steerInput > 0)
-      || (car.oneWayTurn === "right" && steerInput < 0))
-  ) {
-    steerInput = 0;
-  }
-  const steering = defects.has("no_steering") ? 0 : steerInput;
-
-  let maxSpeed = STANDARD_MAX_SPEED_MPS;
-  let engineAcceleration = 10.8;
-  let tireGrip = 7.5;
-  let rollingDrag = wantsAcceleration
-    ? 0.35 + 0.0012 * car.speed ** 2
-    : 2.4 + 0.025 * car.speed;
-
-  if (defects.has("no_engine")) engineAcceleration = 0;
-  if (defects.has("no_wheels")) {
-    engineAcceleration *= 0.22;
-    maxSpeed = 8;
-    tireGrip = 0.45;
-    rollingDrag = 5.5;
-  }
-  if (defects.has("square_wheels")) {
-    engineAcceleration *= 0.72;
-    maxSpeed = Math.min(maxSpeed, 23);
-    rollingDrag += 1.8 + Math.abs(Math.sin(raceElapsedMs / 115)) * 2.2;
-  }
-  if (defects.has("loose_wheel")) maxSpeed *= 0.86;
-  if (defects.has("sideways_wheels")) {
-    engineAcceleration *= 0.34;
-    maxSpeed = Math.min(maxSpeed, 12);
-    tireGrip = 0.8;
-    rollingDrag += 4.5;
-  }
-  if (defects.has("bad_engine_power")) {
-    if (car.enginePowerIssue === "weak") {
-      engineAcceleration *= 0.32;
-      maxSpeed = Math.min(maxSpeed, 17);
-    } else {
-      engineAcceleration *= 2.15;
-      maxSpeed = Math.max(maxSpeed, 42);
-    }
-  }
-  if (defects.has("no_grip")) {
-    engineAcceleration *= 0.82;
-    tireGrip = 0.65;
-    rollingDrag *= 0.45;
-  }
-  if (defects.has("no_seatbelt") && steering !== 0 && car.speed > 18) {
-    engineAcceleration *= 0.28;
-  }
-
-  if (defects.has("no_cooling")) {
-    const heatDelta = wantsAcceleration ? 0.17 * dt : -0.1 * dt;
-    car.heat = clamp(car.heat + heatDelta, 0, 1);
-    if (car.heat > 0.65) {
-      engineAcceleration *= Math.max(0.08, 1 - (car.heat - 0.65) * 2.4);
-    }
-  } else {
-    car.heat = Math.max(0, car.heat - 0.25 * dt);
-  }
-
-  const speedRatio = clamp(car.speed / maxSpeed, 0, 1);
-  const steeringLimit = 24 - 8 * speedRatio;
-  const targetSteeringAngle = steering * steeringLimit;
-  const steeringResponse = Math.min(1, dt * (steering === 0 ? 14 : 10));
-  car.steeringAngle += (targetSteeringAngle - car.steeringAngle) * steeringResponse;
-
-  const steeringSpeed = Math.max(
-    car.speed,
-    wantsAcceleration ? engineAcceleration * dt : 0,
-  );
-  if (steeringSpeed > 0.15) {
-    const steeringRatio = car.steeringAngle / steeringLimit;
-    const speedAuthority = clamp(steeringSpeed / 6, 0, 1);
-    const yawRateLimit = 105 - 45 * speedRatio;
-    car.heading += steeringRatio * yawRateLimit * speedAuthority * dt;
-  }
-  car.heading += car.angularVelocity * dt;
-  car.angularVelocity *= Math.exp(-2.4 * dt);
-  if (steering === 0 && Math.abs(car.angularVelocity) < 8) {
-    car.heading = moveToward(car.heading, 0, (48 + car.speed * 0.7) * dt);
-  }
-  car.heading = clamp(car.heading, -60, 60);
-
-  const headingRadians = car.heading * Math.PI / 180;
-  const forwardX = Math.sin(headingRadians);
-  const forwardZ = Math.cos(headingRadians);
-  const rightX = forwardZ;
-  const rightZ = -forwardX;
-  let forwardVelocity = car.velocityX * forwardX + car.velocityZ * forwardZ;
-  let lateralVelocity = car.velocityX * rightX + car.velocityZ * rightZ;
-
-  const acceleration = wantsAcceleration
-    ? engineAcceleration * Math.max(0.12, 1 - 0.88 * speedRatio ** 2)
-    : 0;
-  const driveDirection = defects.has("backwards_engine") ? -1 : 1;
-  forwardVelocity += acceleration * driveDirection * dt;
-
-  const braking = brakePressed && !defects.has("no_brakes") ? 16 : 0;
-  const resistance = car.speed > 0 ? rollingDrag + braking : 0;
-  const velocityBeforeResistance = Math.hypot(forwardVelocity, lateralVelocity);
-  if (velocityBeforeResistance > 0) {
-    const retainedSpeed = Math.max(0, velocityBeforeResistance - resistance * dt);
-    const retainedRatio = retainedSpeed / velocityBeforeResistance;
-    forwardVelocity *= retainedRatio;
-    lateralVelocity *= retainedRatio;
-  }
-  lateralVelocity *= Math.exp(-tireGrip * dt);
-
-  car.velocityX = forwardX * forwardVelocity + rightX * lateralVelocity;
-  car.velocityZ = forwardZ * forwardVelocity + rightZ * lateralVelocity;
-
-  if (defects.has("loose_wheel") && car.speed > 4) {
-    car.velocityX += Math.sin(raceElapsedMs / 180) * (car.speed / 18) * dt;
-  }
-  if (defects.has("no_grip") && car.speed > 3) {
-    car.velocityX += (
-      steering * (2.2 + car.speed / 12)
-      + Math.sin(raceElapsedMs / 240) * (car.speed / 8)
-    ) * dt;
-  }
-  if (
-    defects.has("bad_engine_power")
-    && car.enginePowerIssue === "overpowered"
-    && wantsAcceleration
-  ) {
-    car.velocityX += Math.sin(raceElapsedMs / 95) * (car.speed / 12) * dt;
-  }
-
-  const resultingSpeed = Math.hypot(car.velocityX, car.velocityZ);
-  if (resultingSpeed > maxSpeed) {
-    const speedScale = maxSpeed / resultingSpeed;
-    car.velocityX *= speedScale;
-    car.velocityZ *= speedScale;
-  }
-
-  const unclampedLane = car.lane + car.velocityX / LANE_TO_WORLD * dt;
-  const nextLane = clampCarLane(unclampedLane, index, carCount);
-  if (nextLane !== unclampedLane) {
-    car.velocityX *= -0.28;
-    car.heading *= 0.72;
-    car.angularVelocity *= -0.25;
-  }
-  car.lane = nextLane;
-
-  const unclampedDistance = car.distance + car.velocityZ * dt;
-  car.distance = clamp(unclampedDistance, 0, TRACK_LENGTH_METERS);
-  if (
-    (car.distance === 0 && car.velocityZ < 0)
-    || (car.distance === TRACK_LENGTH_METERS && car.velocityZ > 0)
-  ) {
-    car.velocityZ = 0;
-  }
-  updateCarSpeed(car);
+function advanceCar(player, dt, raceElapsedMs, world) {
+  if (!player.car || player.car.finishedAtMs !== null) return;
+  const hit = stepKart(player.car, player.controls, dt, raceElapsedMs, world);
+  if (hit?.impactSpeed > 0) registerCollision(player.car, "map", {
+    type: "obstacle", targetId: "map", label: "Scenery", normal: hit.normal,
+    impactSpeed: hit.impactSpeed, impulseNs: Math.round(hit.impactSpeed * player.car.massKg),
+    velocityAfter: collisionSnapshot(player.car),
+  }, raceElapsedMs);
 }
 
 const COLLISION_EPSILON_WORLD = 0.015;
@@ -402,9 +228,7 @@ function sweepPointAgainstBounds(start, end, bounds) {
 }
 
 function applyWorldPosition(car, index, carCount, position) {
-  const corrected = worldPositionToCar(position, index, carCount);
-  car.lane = corrected.lane;
-  car.distance = corrected.distance;
+  car.worldPosition = { x: position.x, y: car.worldPosition.y, z: position.z };
 }
 
 function registerCollision(car, key, collision, raceElapsedMs) {
@@ -420,7 +244,7 @@ function registerCollision(car, key, collision, raceElapsedMs) {
 }
 
 function contactNormalToTrack(hit) {
-  return { x: hit.normalX || 0, z: -hit.normalZ || 0 };
+  return { x: hit.normalX || 0, z: hit.normalZ || 0 };
 }
 
 function applyImpulse(car, impulseX, impulseZ) {
@@ -508,15 +332,19 @@ function resolveStaticImpulse(car, normal, normalizedOffset) {
   };
 }
 
-function expandedObstacleBounds(obstacle) {
-  const position = obstaclePositionToWorld(obstacle);
+function expandedObstacleBounds(obstacle, car) {
   const size = obstacleSizeToWorld(obstacle);
-  return {
-    minX: position.x - size.x / 2 - CAR_SIZE_WORLD.x / 2,
-    maxX: position.x + size.x / 2 + CAR_SIZE_WORLD.x / 2,
-    minZ: position.z - size.z / 2 - CAR_SIZE_WORLD.z / 2,
-    maxZ: position.z + size.z / 2 + CAR_SIZE_WORLD.z / 2,
-  };
+  const yaw = circuitTransform(obstaclePositionToWorld(obstacle)).yaw;
+  const angle = (car.heading + yaw) * Math.PI / 180;
+  const width = Math.abs(Math.cos(angle)) * CAR_SIZE_WORLD.x + Math.abs(Math.sin(angle)) * CAR_SIZE_WORLD.z;
+  const length = Math.abs(Math.sin(angle)) * CAR_SIZE_WORLD.x + Math.abs(Math.cos(angle)) * CAR_SIZE_WORLD.z;
+  return { minX: -(size.x + width) / 2, maxX: (size.x + width) / 2,
+    minZ: -(size.z + length) / 2, maxZ: (size.z + length) / 2 };
+}
+function obstacleLocal(position, obstaclePose) {
+  const angle = obstaclePose.yaw * Math.PI / 180;
+  const dx = position.x - obstaclePose.x, dz = position.z - obstaclePose.z;
+  return { x: Math.cos(angle) * dx - Math.sin(angle) * dz, z: Math.sin(angle) * dx + Math.cos(angle) * dz };
 }
 
 function resolveObstacleCollisions(racers, previousPositions, raceElapsedMs) {
@@ -525,19 +353,23 @@ function resolveObstacleCollisions(racers, previousPositions, raceElapsedMs) {
     const previous = previousPositions.get(player.id);
     let current = carPositionToWorld(player.car, index, carCount);
     for (const obstacle of TRACK_OBSTACLES) {
-      const hit = sweepPointAgainstBounds(
-        previous,
-        current,
-        expandedObstacleBounds(obstacle),
-      );
+      const obstaclePose = circuitTransform(obstaclePositionToWorld(obstacle));
+      const hit = sweepPointAgainstBounds(obstacleLocal(previous, obstaclePose), obstacleLocal(current, obstaclePose), expandedObstacleBounds(obstacle, player.car));
       if (!hit) continue;
+      const angle = obstaclePose.yaw * Math.PI / 180;
+      const { x, z } = hit.contact;
+      hit.contact = { x: obstaclePose.x + Math.cos(angle) * x + Math.sin(angle) * z,
+        z: obstaclePose.z - Math.sin(angle) * x + Math.cos(angle) * z };
+      const nx = hit.normalX, nz = hit.normalZ;
+      hit.normalX = Math.cos(angle) * nx + Math.sin(angle) * nz;
+      hit.normalZ = -Math.sin(angle) * nx + Math.cos(angle) * nz;
 
       const resolved = {
         x: hit.contact.x + hit.normalX * COLLISION_EPSILON_WORLD,
         z: hit.contact.z + hit.normalZ * COLLISION_EPSILON_WORLD,
       };
       applyWorldPosition(player.car, index, carCount, resolved);
-      const obstaclePosition = obstaclePositionToWorld(obstacle);
+      const obstaclePosition = circuitTransform(obstaclePositionToWorld(obstacle));
       const obstacleSize = obstacleSizeToWorld(obstacle);
       const normalizedOffset = Math.abs(hit.normalZ) > 0.5
         ? clamp(
@@ -578,12 +410,7 @@ function resolveObstacleCollisions(racers, previousPositions, raceElapsedMs) {
 
 function resolveCarCollisions(racers, previousPositions, raceElapsedMs) {
   const carCount = racers.length;
-  const pairBounds = {
-    minX: -CAR_SIZE_WORLD.x,
-    maxX: CAR_SIZE_WORLD.x,
-    minZ: -CAR_SIZE_WORLD.z,
-    maxZ: CAR_SIZE_WORLD.z,
-  };
+
 
   for (let firstIndex = 0; firstIndex < racers.length; firstIndex += 1) {
     for (let secondIndex = firstIndex + 1; secondIndex < racers.length; secondIndex += 1) {
@@ -601,6 +428,14 @@ function resolveCarCollisions(racers, previousPositions, raceElapsedMs) {
         x: firstCurrent.x - secondCurrent.x,
         z: firstCurrent.z - secondCurrent.z,
       };
+      const extent = (car) => {
+        const a = car.heading * Math.PI / 180;
+        return { x: (Math.abs(Math.cos(a)) * CAR_SIZE_WORLD.x + Math.abs(Math.sin(a)) * CAR_SIZE_WORLD.z) / 2,
+          z: (Math.abs(Math.sin(a)) * CAR_SIZE_WORLD.x + Math.abs(Math.cos(a)) * CAR_SIZE_WORLD.z) / 2 };
+      };
+      const firstExtent = extent(first.car), secondExtent = extent(second.car);
+      const pairBounds = { minX: -firstExtent.x - secondExtent.x, maxX: firstExtent.x + secondExtent.x,
+        minZ: -firstExtent.z - secondExtent.z, maxZ: firstExtent.z + secondExtent.z };
       const hit = sweepPointAgainstBounds(relativeStart, relativeEnd, pairBounds);
       if (!hit) continue;
 
@@ -703,6 +538,7 @@ export class GameEngine {
     startCountdownMs = START_COUNTDOWN_MS,
     maxRaceDurationMs = MAX_RACE_DURATION_MS,
     defectsEnabled = false,
+    drivingWorld,
   } = {}) {
     this.buildDurationMs = buildDurationMs;
     this.tuningDurationMs = tuningDurationMs;
@@ -710,6 +546,7 @@ export class GameEngine {
     this.maxRaceDurationMs = maxRaceDurationMs;
     this.defectsEnabled = defectsEnabled;
     this.rooms = new Map();
+    this.drivingWorld = drivingWorld === undefined ? getDrivingWorld() : drivingWorld;
   }
 
   createRoom(now = Date.now()) {
@@ -857,6 +694,7 @@ export class GameEngine {
     room.startsAt = now + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
+    room.drivingAccumulator = 0;
     room.phase = "countdown";
     return room;
   }
@@ -879,6 +717,7 @@ export class GameEngine {
     room.startsAt = now + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
+    room.drivingAccumulator = 0;
     room.phase = "countdown";
     return room;
   }
@@ -959,6 +798,7 @@ export class GameEngine {
     room.startsAt = now + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
+    room.drivingAccumulator = 0;
     room.phase = "countdown";
     return room;
   }
@@ -974,6 +814,7 @@ export class GameEngine {
       brake: controls.brake === true,
       left: controls.left === true,
       right: controls.right === true,
+      stop: controls.stop === true,
     };
   }
 
@@ -993,12 +834,21 @@ export class GameEngine {
       room.lastTickAt = now;
       const elapsed = now - room.startsAt;
       const racers = [...room.players.values()].filter((player) => player.car);
-      const previousPositions = new Map(racers.map((player, index) => [
-        player.id,
-        carPositionToWorld(player.car, index, racers.length),
-      ]));
-      racers.forEach((player, index) => advanceCar(player, dt, elapsed, index, racers.length));
-      resolveTrackCollisions(racers, previousPositions, elapsed);
+      room.drivingAccumulator = (room.drivingAccumulator ?? 0) + dt;
+      while (room.drivingAccumulator + 1e-9 >= DRIVING_STEP) {
+        const previousPositions = new Map(racers.map((player) => [player.id, { ...player.car.worldPosition, resetVersion: player.car.resetVersion }]));
+        racers.forEach((player) => advanceCar(player, DRIVING_STEP, elapsed, this.drivingWorld));
+        for (const player of racers) {
+          if (player.car.resetVersion !== previousPositions.get(player.id).resetVersion) {
+            previousPositions.set(player.id, { ...player.car.worldPosition });
+          }
+        }
+        resolveTrackCollisions(racers, previousPositions, elapsed);
+        racers.forEach((player) => {
+          if (player.car.finishedAtMs === null && player.car.resetVersion === previousPositions.get(player.id).resetVersion) updateLapProgress(player.car, previousPositions.get(player.id));
+        });
+        room.drivingAccumulator -= DRIVING_STEP;
+      }
 
       const newlyFinished = [...room.players.values()]
         .filter(
@@ -1034,7 +884,7 @@ export class GameEngine {
     viewerPlayerId = null,
   ) {
     return {
-      protocolVersion: 4,
+      protocolVersion: 5,
       id: room.id,
       phase: room.phase,
       serverNow: now,

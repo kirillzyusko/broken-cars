@@ -1,8 +1,8 @@
 import * as pc from "playcanvas";
-import { createKartVisual, loadKartAssets } from "./kart-visual.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
 import { createRaceWater } from "./race-water.js";
+import { createKartVisual, loadKartAssets } from "./kart-visual.js";
 import { setupRaceLighting, setupContactShadows } from "./race-lighting.js";
 import { frontAxleWorldPosition, carWorldTransform, smoothingFactor } from "./race-scene-model.js";
 import { CAR_SIZE_WORLD, CAR_FRONT_AXLE_OFFSET_WORLD } from "../shared/race-config.js";
@@ -47,7 +47,10 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     onStatus("Loading karts…");
     scene.kartAssets = await loadKartAssets(app, isCancelled);
     if (isCancelled()) { scene.destroy(); return null; }
-    app.on("update", (dt) => updateScene(scene, Math.min(dt, 0.1)));
+    app.on("update", (dt) => {
+      scene.updateDriving?.(Math.min(dt, 0.1));
+      updateScene(scene, Math.min(dt, 0.1));
+    });
     updateScene(scene, 0);
     onStatus("");
     return scene;
@@ -78,12 +81,13 @@ export function syncCars(scene, cars) {
         linearOffset: new pc.Vec3(0, 0, CAR_FRONT_AXLE_OFFSET_WORLD),
       });
       entity.addComponent("rigidbody", { type: "kinematic" });
-      state = { entity, visual, distance: car.distance, lane: car.lane,
+      state = { entity, visual, worldPosition: car.worldPosition ? { ...car.worldPosition } : null, distance: car.distance, lane: car.lane,
         heading: car.heading, car };
       scene.carStates.set(car.id, state);
     }
     // A rematch or preview seek must not interpolate backwards around the circuit.
-    if (Math.abs(car.distance - state.car.distance) > 30) {
+    if (car.resetVersion !== state.car.resetVersion || Math.abs(car.distance - state.car.distance) > 30) {
+      state.worldPosition = car.worldPosition ? { ...car.worldPosition } : null;
       state.distance = car.distance;
       state.lane = car.lane;
       state.heading = car.heading;
@@ -140,7 +144,13 @@ function updateScene(scene, dt) {
   for (const state of scene.carStates.values()) {
     state.distance = pc.math.lerp(state.distance, state.car.distance, blend);
     state.lane = pc.math.lerp(state.lane, state.car.lane, blend);
-    state.heading = pc.math.lerp(state.heading, state.car.heading, blend);
+    const amount = scene.updateDriving ? 1 : blend;
+    if (state.car.worldPosition) {
+      state.worldPosition ??= { ...state.car.worldPosition };
+      for (const axis of ["x", "y", "z"]) state.worldPosition[axis] = pc.math.lerp(state.worldPosition[axis], state.car.worldPosition[axis], amount);
+    }
+    const turn = ((state.car.heading - state.heading + 180) % 360 + 360) % 360 - 180;
+    state.heading += turn * amount;
     // Interpolate progress before sampling the curve, avoiding shortcuts across chicanes.
     const pose = carWorldTransform(state, state.car.index, state.car.carCount);
     state.pose = pose;

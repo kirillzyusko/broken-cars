@@ -50,8 +50,7 @@ export const TRACK_OBSTACLES = Object.freeze([
   }),
 ]);
 
-// Physics uses an unwrapped road: X is lateral and negative Z is race progress.
-// The renderer maps these same coordinates onto the exported centerline.
+// The map tour still accepts a distance and lane. Driving uses worldPosition.
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const GRID_FADE_DISTANCE = 40;
 
@@ -69,6 +68,7 @@ export function clampCarLane(lane, index = 0, carCount = 1) {
 }
 
 export function carPositionToWorld(car, index = 0, carCount = 1) {
+  if (car.worldPosition) return { ...car.worldPosition };
   const grid = startingGridWorldOffset(index, carCount);
   return {
     x: grid.x + clampCarLane(car.lane ?? 0, index, carCount) * LANE_TO_WORLD,

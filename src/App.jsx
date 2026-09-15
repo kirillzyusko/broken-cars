@@ -526,6 +526,7 @@ function Player({ roomId }) {
       w: "accelerate",
       ArrowDown: "brake",
       s: "brake",
+      " ": "stop",
       ArrowLeft: "left",
       a: "left",
       ArrowRight: "right",
@@ -709,8 +710,8 @@ function Player({ roomId }) {
             <ControllerButton control="right" label="Steer right" active={controls.right} onControl={updateControl}>→</ControllerButton>
           </div>
           <div className="pedal-controls">
-            <ControllerButton control="brake" label="Brake" active={controls.brake} onControl={updateControl} className="brake-button">
-              <span>Brake</span><strong>■</strong>
+            <ControllerButton control="brake" label="Brake / reverse" active={controls.brake} onControl={updateControl} className="brake-button">
+              <span>Brake / reverse</span><strong>■</strong>
             </ControllerButton>
             <ControllerButton control="accelerate" label="Accelerate" active={controls.accelerate} onControl={updateControl} className="gas-button">
               <span>Gas</span><strong>▲</strong>
