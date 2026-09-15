@@ -1,10 +1,13 @@
 import track from "./corsica-track.json" with { type: "json" };
 
-export const ROAD_HALF_WIDTH = track.roadHalfWidth;
-export const ROAD_WORLD_LENGTH = track.lapLength;
-export const DISTANCE_TO_WORLD = track.lapLength / track.serverRaceDistance;
-export const CAR_HEIGHT = 0.7;
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+import {
+  CAR_SIZE_WORLD, CAR_FRONT_AXLE_OFFSET_WORLD, DISTANCE_TO_WORLD,
+  ROAD_HALF_WIDTH, ROAD_WORLD_LENGTH, carPositionToWorld,
+  obstaclePositionToWorld, obstacleSizeToWorld,
+} from "../shared/race-config.js";
+
+export { DISTANCE_TO_WORLD, ROAD_HALF_WIDTH, ROAD_WORLD_LENGTH };
+export const CAR_HEIGHT = CAR_SIZE_WORLD.y;
 
 // Distances are measured along the closed centerline, including behind the grid.
 export function sampleTrack(distance) {
@@ -30,19 +33,37 @@ export function sampleTrack(distance) {
   };
 }
 
-export function carWorldTransform(car, index = 0, carCount = 1) {
-  // Ease the stagger out early so all racers cross the line at server distance 500.
-  const gridOffset = (4 + Math.floor(index / 2) * 3) * Math.max(0, 1 - car.distance / 40);
-  const pose = sampleTrack(car.distance * DISTANCE_TO_WORLD - gridOffset);
-  const column = carCount > 1 ? (index % 2 === 0 ? -0.9 : 0.9) : 0;
-  const lane = clamp(column + (car.lane ?? 0) * 1.35, -ROAD_HALF_WIDTH + 0.8, ROAD_HALF_WIDTH - 0.8);
+function circuitTransform(position) {
+  const pose = sampleTrack(-position.z);
   return {
-    x: pose.x - pose.forward.z * lane,
-    y: pose.y + CAR_HEIGHT / 2 + 0.04,
-    z: pose.z + pose.forward.x * lane,
+    x: pose.x - pose.forward.z * position.x,
+    y: pose.y + position.y,
+    z: pose.z + pose.forward.x * position.x,
     yaw: pose.yaw,
     forward: pose.forward,
   };
+}
+
+export function carWorldTransform(car, index = 0, carCount = 1) {
+  const pose = circuitTransform(carPositionToWorld(car, index, carCount));
+  return { ...pose, yaw: pose.yaw - (car.heading ?? 0) };
+}
+
+export function frontAxleWorldPosition(position, yawDegrees) {
+  const radians = yawDegrees * Math.PI / 180;
+  return {
+    x: position.x - Math.sin(radians) * CAR_FRONT_AXLE_OFFSET_WORLD,
+    y: position.y,
+    z: position.z - Math.cos(radians) * CAR_FRONT_AXLE_OFFSET_WORLD,
+  };
+}
+
+export function raceObstaclesFromRoom(room) {
+  return (room?.obstacles ?? []).map((obstacle) => ({
+    ...obstacle,
+    position: circuitTransform(obstaclePositionToWorld(obstacle)),
+    size: obstacleSizeToWorld(obstacle),
+  }));
 }
 
 export function raceCarsFromRoom(room, currentPlayerId = null) {
@@ -55,6 +76,14 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     distance: player.car.distance,
     lane: player.car.lane ?? 0,
     speed: player.car.speed,
+    velocityX: player.car.velocityX ?? 0,
+    velocityZ: player.car.velocityZ ?? player.car.speed,
+    heading: player.car.heading ?? 0,
+    steeringAngle: player.car.steeringAngle ?? 0,
+    angularVelocity: player.car.angularVelocity ?? 0,
+    massKg: player.car.massKg ?? 1_000,
+    collisionCount: player.car.collisionCount ?? 0,
+    lastCollision: player.car.lastCollision ?? null,
     rank: player.car.rank,
     index,
     carCount: racers.length,

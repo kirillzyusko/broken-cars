@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { raceCarsFromRoom } from "./race-scene-model.js";
-import { createRaceScene, syncCars } from "./race-scene-runtime.js";
+import { raceCarsFromRoom, raceObstaclesFromRoom } from "./race-scene-model.js";
+import { createRaceScene, syncCars, syncObstacles } from "./race-scene-runtime.js";
 
 export default function RaceScene({ room, currentPlayerId = null, view = "spectator", onReady }) {
   const canvasRef = useRef(null);
@@ -10,7 +10,13 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
   const [loading, setLoading] = useState("Loading Corsica GP…");
   const [cameraMode, setCameraMode] = useState(view);
   const cars = useMemo(() => raceCarsFromRoom(room, currentPlayerId), [currentPlayerId, room]);
-  latestRef.current = { cars, currentPlayerId, cameraMode, onReady };
+  const obstacles = useMemo(() => raceObstaclesFromRoom(room), [room?.obstacles]);
+  const focusCar = cars.find((car) => car.isCurrent)
+    ?? cars.reduce((leader, car) => !leader || car.distance > leader.distance ? car : leader, null);
+  const raceElapsedMs = Math.max(0, (room.serverNow ?? 0) - (room.startsAt ?? 0));
+  const recentImpact = focusCar?.lastCollision && raceElapsedMs - focusCar.lastCollision.atMs < 900
+    ? focusCar.lastCollision : null;
+  latestRef.current = { cars, obstacles, currentPlayerId, cameraMode, onReady };
 
   useEffect(() => { setCameraMode(view); }, [view]);
   useEffect(() => {
@@ -32,6 +38,7 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
       scene.currentPlayerId = latestRef.current.currentPlayerId;
       scene.view = latestRef.current.cameraMode;
       syncCars(scene, latestRef.current.cars);
+      syncObstacles(scene, latestRef.current.obstacles);
       resize();
       latestRef.current.onReady?.(scene);
     }).catch((error) => {
@@ -49,10 +56,11 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
     const scene = sceneRef.current;
     if (!scene) return;
     syncCars(scene, cars);
+    syncObstacles(scene, obstacles);
     scene.currentPlayerId = currentPlayerId;
     if (scene.view !== cameraMode) scene.cameraPlaced = false;
     scene.view = cameraMode;
-  }, [cars, currentPlayerId, cameraMode]);
+  }, [cars, obstacles, currentPlayerId, cameraMode]);
 
   return (
     <section className="panel race-world" aria-label="Live 3D race">
@@ -67,13 +75,14 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
             <option value="overview">Whole island</option>
           </select>
         </label>
-        <span>{Math.round(room.trackLength)} m · 1 lap</span>
+        <span>{Math.round(room.trackLength)} m · 1 lap · {obstacles.length} barriers · {focusCar?.massKg ?? 1_000} kg</span>
       </div>
       <div className="race-world__viewport">
         <canvas ref={canvasRef} aria-label="Corsica GP island circuit in PlayCanvas" />
         <div className="race-world__status">
-          {loading || (room.phase === "countdown" ? "Starting grid" : room.phase === "preview" ? "Circuit preview" : "Live · server synced")}
+          {loading || (room.phase === "countdown" ? "Starting grid" : room.phase === "preview" ? "Circuit preview" : recentImpact ? `Impact · ${recentImpact.impactSpeed.toFixed(1)} m/s` : "Live · server synced")}
         </div>
+        <div className="race-world__distance">{Math.round(focusCar?.distance ?? 0)} / {Math.round(room.trackLength)} m</div>
         {loading && <div className="race-world__loading" role="status"><span className="spinner" />{loading}</div>}
         {renderError && <p className="race-world__error" role="alert">{renderError}</p>}
       </div>
@@ -83,7 +92,7 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
             <i style={{ backgroundColor: car.color }} />
             <strong>{car.isCurrent ? "You" : car.name}</strong>
             <span>{Math.round(car.speed * 3.6)} km/h</span>
-            <span>{Math.round(car.distance)} m</span>
+            <span>{Math.round(car.distance)} m{car.collisionCount > 0 ? ` · ${car.collisionCount} hit${car.collisionCount === 1 ? "" : "s"}` : ""}</span>
           </div>
         ))}
       </div>

@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders Corsica GP and synchronized box cars; every player gets the same working acceleration, brakes, and steering. After a finish, the host can start a rematch with the same cars.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized box cars, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. After a finish, the host can start a rematch with the same cars.
 
 ## Run locally
 
@@ -31,7 +31,9 @@ Tuning reports use the same selector. A concrete symptom such as `it slides like
 - Express serves rooms and the web client from one LAN-accessible port.
 - WebSockets carry room state, prompt submissions, and live control intent.
 - `server/game.js` exports one framework-independent `BrokenCarsGame` object. It owns the complete public integration surface: rooms, prompts, races, tuning, repairs, controls, ticks, and privacy-filtered snapshots.
-- `server/game-engine.js` contains the state machine and physics. OpenAI/local selectors are injected into `BrokenCarsGame`, so tests and future transports can replace them without touching game rules.
+- `server/game-engine.js` runs the state machine, arcade driving model, swept collision detection, and impulse response. Velocity and heading use track-relative coordinates: forward along the circuit and sideways across it. Car contacts use axis-aligned boxes in that space, with restitution and friction.
+- `shared/race-config.js` shares the map scale, road width, grid, car sizes, and barriers between server physics and rendering. The renderer wraps those coordinates onto the exported centerline and adds steering and impact yaw to the track direction.
+- OpenAI/local selectors are injected into `BrokenCarsGame`, so tests and future transports can replace them without touching game rules.
 - WebSockets are only a transport adapter. React consumes snapshots and calls semantic actions from `useGameSocket` (`startBuild`, `submitCarPrompt`, `startRace`, `startTuning`, `submitRepair`, `startNextRace`, `setControls`). A UI redesign does not need to know packet shapes.
 - Room state is in memory for this local prototype and expires after six hours. Restarting the server clears it.
 
@@ -76,7 +78,7 @@ The sky uses Kenney's day panorama from `public/skyboxes/skybox-day.png`, conver
 
 Coordinates use meters, Y up, and negative Z forward at the start line. Server race distance follows the exported centerline through one 500-meter lap. Steering moves across the road and the cameras follow the corners. Grid positions begin behind the gantry.
 
-**Vehicle motion still uses the existing server distance/lane simulation.** Client cars have kinematic bodies. Static map collisions support physics objects and camera obstruction checks, but do not replace the server simulation with free-driving vehicle physics.
+**The server owns vehicle motion and car/barrier impacts.** Client cars have kinematic bodies; static map meshes support local physics objects and camera obstruction checks. The server does not simulate collisions against the island GLB. Its road-relative model keeps cars on the circuit. Grid staggering fades over the first 40 meters so all racers finish at the same 500-meter progress; collision corrections use the inverse mapping.
 
 ### Export a map revision
 

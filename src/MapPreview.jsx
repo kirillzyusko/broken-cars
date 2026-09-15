@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as pc from "playcanvas";
+import { TRACK_OBSTACLES } from "../shared/race-config.js";
 import RaceScene from "./RaceScene.jsx";
 import { sampleTrack } from "./race-scene-model.js";
 import track from "./corsica-track.json" with { type: "json" };
@@ -20,7 +21,7 @@ export default function MapPreview() {
     return () => clearInterval(timer);
   }, [playing]);
   const room = {
-    phase: "preview", trackLength: 500,
+    phase: "preview", trackLength: 500, obstacles: TRACK_OBSTACLES,
     players: [{ id: "preview", name: "Circuit tour", car: { distance, lane: 0, speed: playing ? 18 : 0, color: "#f2c94c" } }],
   };
   function checkCollisions() {

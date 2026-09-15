@@ -217,6 +217,20 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   text-transform: uppercase;
   pointer-events: none;
 }
+.race-world__distance {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  padding: 0.42rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 7px;
+  background: rgba(13, 18, 15, 0.78);
+  color: #fff;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
 .race-world__error {
   position: absolute;
   inset: 1rem;
