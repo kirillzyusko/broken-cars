@@ -6,14 +6,19 @@
   z-index: 1000;
   display: grid;
   place-items: center;
+  overflow: hidden;
   background: #f5f5f5;
   color: #292929;
 }
 .host-loading-screen video, .host-loading-screen img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
-  object-fit: contain;
+  min-width: 0;
+  object-fit: cover;
 }
 .loading-intro-actions {
   position: absolute;

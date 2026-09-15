@@ -44,13 +44,13 @@ export default function LoadingIntro({ preview = false, reducedMotion = false, o
       <div><h1>Loading screen</h1><p>6 seconds · Host intro with sound</p></div>
       <a href="/map/drive">Back to driving</a>
     </header>}
-    <div className={`loading-intro-actions${preview ? " loading-intro-actions--preview" : ""}`}>
-      <span role="status">{error || (preview ? "Play, pause or scrub to review the timing." : "Starting game…")}</span>
+    {preview && <div className="loading-intro-actions loading-intro-actions--preview">
+      <span role="status">{error || "Play, pause or scrub to review the timing."}</span>
       <div className="loading-intro-buttons">
-        {!reducedMotion && (preview || needsSound) && <button type="button" onClick={replay}>
+        {!reducedMotion && <button type="button" onClick={replay}>
           {needsSound ? "Play with sound" : "Replay with sound"}
         </button>}
       </div>
-    </div>
+    </div>}
   </div>;
 }

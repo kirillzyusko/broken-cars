@@ -13,4 +13,4 @@ ffmpeg -y -i public/video/host-loading.mp4 -i '/path/to/41A Ciappili 2.m4a' \
   -t 6 -movflags +faststart public/video/host-loading-sound.mp4
 ```
 
-Home and host pages share this clip. Driver pages skip it. Browsers that block audible autoplay get muted playback with a button to restart with sound. The host intro plays through with no skip button or keyboard shortcut. Background music waits until the intro ends. Playback errors and a timeout let the host continue if the video cannot finish. Reduced-motion mode keeps the still poster.
+Home and host pages share this clip. Driver pages skip it. Browsers that block audible autoplay get muted playback. The host intro has no text or buttons. Video and poster fill the viewport with centered cropping; the test page keeps its review controls. The host intro plays through with no skip button or keyboard shortcut. Background music waits until the intro ends. Playback errors and a timeout let the host continue if the video cannot finish. Reduced-motion mode keeps the still poster.
