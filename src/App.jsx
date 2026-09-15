@@ -182,7 +182,7 @@ function Host({ roomId }) {
   const hostToken = sessionStorage.getItem(`broken-cars:host:${roomId}`) ?? "";
   const storedJoinUrl = sessionStorage.getItem(`broken-cars:join:${roomId}`);
   const joinUrl = storedJoinUrl ?? `${window.location.origin}/play/${roomId}`;
-  const { connection, room, error, clearError, send } = useGameSocket({
+  const { connection, room, error, clearError, actions } = useGameSocket({
     roomId,
     role: "host",
     hostToken,
@@ -228,10 +228,10 @@ function Host({ roomId }) {
   })();
 
   function triggerHostAction() {
-    if (isWaiting) send({ type: "start_prompting", hostToken });
-    else if (room?.phase === "prompting") send({ type: "start_race", hostToken });
-    else if (room?.phase === "finished") send({ type: "start_tuning", hostToken });
-    else if (room?.phase === "tuning") send({ type: "start_next_race", hostToken });
+    if (isWaiting) actions.startBuild();
+    else if (room?.phase === "prompting") actions.startRace();
+    else if (room?.phase === "finished") actions.startTuning();
+    else if (room?.phase === "tuning") actions.startNextRace();
   }
 
   if (!hostToken) {
@@ -415,7 +415,7 @@ function ControllerButton({ control, active, onControl, children, className = ""
 
 function Player({ roomId }) {
   const playerId = useMemo(() => getPlayerId(roomId), [roomId]);
-  const { connection, room, error, clearError, send } = useGameSocket({
+  const { connection, room, error, clearError, actions } = useGameSocket({
     roomId,
     role: "player",
     clientId: playerId,
@@ -444,14 +444,14 @@ function Player({ roomId }) {
     const next = { ...controlsRef.current, [control]: pressed };
     controlsRef.current = next;
     setControls(next);
-    send({ type: "controls", controls: next });
-  }, [send]);
+    actions.setControls(next);
+  }, [actions]);
 
   useEffect(() => {
     function releaseAll() {
       controlsRef.current = EMPTY_CONTROLS;
       setControls(EMPTY_CONTROLS);
-      send({ type: "controls", controls: EMPTY_CONTROLS });
+      actions.setControls(EMPTY_CONTROLS);
     }
     window.addEventListener("blur", releaseAll);
     document.addEventListener("visibilitychange", releaseAll);
@@ -459,7 +459,7 @@ function Player({ roomId }) {
       window.removeEventListener("blur", releaseAll);
       document.removeEventListener("visibilitychange", releaseAll);
     };
-  }, [send]);
+  }, [actions]);
 
   useEffect(() => {
     if (!canDrive) return undefined;
@@ -492,13 +492,13 @@ function Player({ roomId }) {
   function submitPrompt(event) {
     event.preventDefault();
     if (!prompt.trim()) return;
-    send({ type: "submit_prompt", prompt });
+    actions.submitCarPrompt(prompt);
   }
 
   function submitTuningPrompt(event) {
     event.preventDefault();
     if (!tuningPrompt.trim()) return;
-    send({ type: "submit_tuning_prompt", prompt: tuningPrompt });
+    actions.submitRepair(tuningPrompt);
   }
 
   return (

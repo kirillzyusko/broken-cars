@@ -4,8 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import express from "express";
 import { WebSocket, WebSocketServer } from "ws";
-import { GameEngine } from "./game-engine.js";
-import { getSelectorName, selectDefects, selectRepairs } from "./defects.js";
+import { createGame } from "./game.js";
 
 const isProduction = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT || 3001);
@@ -17,7 +16,7 @@ function durationFromEnvironment(name) {
   return Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
-const engine = new GameEngine({
+const game = createGame({
   buildDurationMs: durationFromEnvironment("BUILD_DURATION_MS"),
   tuningDurationMs: durationFromEnvironment("TUNING_DURATION_MS"),
   startCountdownMs: durationFromEnvironment("START_COUNTDOWN_MS"),
@@ -47,7 +46,7 @@ function publicOrigin(request) {
 }
 
 app.post("/api/rooms", (request, response) => {
-  const room = engine.createRoom();
+  const room = game.createRoom();
   response.status(201).json({
     roomId: room.id,
     hostToken: room.hostToken,
@@ -56,13 +55,13 @@ app.post("/api/rooms", (request, response) => {
 });
 
 app.get("/api/rooms/:roomId", (request, response) => {
-  const room = engine.getRoom(request.params.roomId);
+  const room = game.getRoom(request.params.roomId);
   if (!room) return response.status(404).json({ error: "Game room not found." });
   return response.json(serializeRoom(room));
 });
 
 function serializeRoom(room, viewerPlayerId = null) {
-  return engine.serialize(room, Date.now(), getSelectorName(), viewerPlayerId);
+  return game.getState(room, { now: Date.now(), viewerPlayerId });
 }
 
 function send(socket, payload) {
@@ -74,7 +73,7 @@ function sendError(socket, error) {
 }
 
 function broadcast(roomId) {
-  const room = engine.getRoom(roomId);
+  const room = game.getRoom(roomId);
   if (!room) return;
   for (const client of sockets.clients) {
     if (client.readyState === WebSocket.OPEN && client.session?.roomId === room.id) {
@@ -105,12 +104,12 @@ sockets.on("connection", (socket) => {
 
     try {
       if (message.type === "join") {
-        const room = engine.requireRoom(message.roomId);
+        const room = game.requireRoom(message.roomId);
         if (message.role === "host") {
-          engine.assertHost(room, message.hostToken);
+          game.assertHost(room, message.hostToken);
           socket.session = { role: "host", roomId: room.id };
         } else {
-          const player = engine.joinPlayer(room.id, message.clientId);
+          const player = game.joinPlayer(room.id, message.clientId);
           socket.session = { role: "player", roomId: room.id, playerId: player.id };
           send(socket, { type: "identity", playerId: player.id });
         }
@@ -122,34 +121,30 @@ sockets.on("connection", (socket) => {
       const { roomId, playerId, role } = socket.session;
 
       if (message.type === "submit_prompt" && role === "player") {
-        engine.submitPrompt(roomId, playerId, message.prompt);
+        game.submitCarPrompt(roomId, playerId, message.prompt);
         broadcast(roomId);
       } else if (message.type === "submit_tuning_prompt" && role === "player") {
-        engine.submitTuningPrompt(roomId, playerId, message.prompt);
+        game.submitRepair(roomId, playerId, message.prompt);
         broadcast(roomId);
       } else if (message.type === "controls" && role === "player") {
-        engine.setControls(roomId, playerId, message.controls ?? {});
+        game.setControls(roomId, playerId, message.controls ?? {});
       } else if (message.type === "start_prompting" && role === "host") {
-        engine.startPrompting(roomId, message.hostToken);
+        game.startBuild(roomId, message.hostToken);
         broadcast(roomId);
       } else if (message.type === "start_race" && role === "host") {
-        const room = engine.requireRoom(roomId);
-        engine.assertHost(room, message.hostToken);
-        const startPromise = engine.startRoom(roomId, message.hostToken, selectDefects);
+        const room = game.requireRoom(roomId);
+        game.assertHost(room, message.hostToken);
+        const startPromise = game.startRace(roomId, message.hostToken);
         broadcast(roomId);
         await startPromise;
         broadcast(roomId);
       } else if (message.type === "start_tuning" && role === "host") {
-        engine.startTuning(roomId, message.hostToken);
+        game.startTuning(roomId, message.hostToken);
         broadcast(roomId);
       } else if (message.type === "start_next_race" && role === "host") {
-        const room = engine.requireRoom(roomId);
-        engine.assertHost(room, message.hostToken);
-        const repairPromise = engine.startNextRace(
-          roomId,
-          message.hostToken,
-          selectRepairs,
-        );
+        const room = game.requireRoom(roomId);
+        game.assertHost(room, message.hostToken);
+        const repairPromise = game.startNextRace(roomId, message.hostToken);
         broadcast(roomId);
         await repairPromise;
         broadcast(roomId);
@@ -162,19 +157,19 @@ sockets.on("connection", (socket) => {
 
   socket.on("close", () => {
     if (socket.session?.role === "player") {
-      engine.disconnectPlayer(socket.session.roomId, socket.session.playerId);
+      game.disconnectPlayer(socket.session.roomId, socket.session.playerId);
       broadcast(socket.session.roomId);
     }
   });
 });
 
 const simulation = setInterval(() => {
-  const changedRooms = engine.tick();
+  const changedRooms = game.tick();
   for (const roomId of changedRooms) broadcast(roomId);
 }, 50);
 
 const lobbyUpdates = setInterval(() => {
-  for (const room of engine.rooms.values()) {
+  for (const room of game.rooms.values()) {
     if (["waiting", "prompting", "assigning", "tuning", "repairing", "countdown"].includes(room.phase)) {
       broadcast(room.id);
     }
@@ -190,7 +185,7 @@ const heartbeat = setInterval(() => {
     socket.isAlive = false;
     socket.ping();
   }
-  engine.removeStaleRooms();
+  game.removeStaleRooms();
 }, 30_000);
 
 sockets.on("close", () => {

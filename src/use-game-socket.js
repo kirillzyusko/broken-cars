@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const CLIENT_PROTOCOL_VERSION = 3;
 
@@ -63,6 +63,16 @@ export function useGameSocket({ roomId, role, hostToken, clientId }) {
     return true;
   }, []);
 
+  const actions = useMemo(() => ({
+    startBuild: () => send({ type: "start_prompting", hostToken }),
+    submitCarPrompt: (prompt) => send({ type: "submit_prompt", prompt }),
+    startRace: () => send({ type: "start_race", hostToken }),
+    startTuning: () => send({ type: "start_tuning", hostToken }),
+    submitRepair: (prompt) => send({ type: "submit_tuning_prompt", prompt }),
+    startNextRace: () => send({ type: "start_next_race", hostToken }),
+    setControls: (controls) => send({ type: "controls", controls }),
+  }), [hostToken, send]);
+
   const clearError = useCallback(() => setError(""), []);
-  return { connection, room, error, clearError, send };
+  return { connection, room, error, clearError, actions };
 }
