@@ -727,7 +727,9 @@ export class GameEngine {
     return player;
   }
 
-  async startRoom(roomId, hostToken, selector, now = Date.now()) {
+  async startRoom(roomId, hostToken, selector, now) {
+    const liveClock = now === undefined;
+    now ??= Date.now();
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "prompting") throw new Error("The car build is not active.");
@@ -759,7 +761,8 @@ export class GameEngine {
 
     room.roundNumber = 1;
     room.finishers = [];
-    room.startsAt = now + this.startCountdownMs;
+    // Garage requests can outlast the countdown; start it only when cars are ready.
+    room.startsAt = (liveClock ? Date.now() : now) + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
     room.drivingAccumulator = 0;
@@ -803,7 +806,9 @@ export class GameEngine {
     return player;
   }
 
-  async startNextRace(roomId, hostToken, repairSelector, now = Date.now()) {
+  async startNextRace(roomId, hostToken, repairSelector, now) {
+    const liveClock = now === undefined;
+    now ??= Date.now();
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "tuning") throw new Error("The tuning round is not active.");
@@ -839,7 +844,8 @@ export class GameEngine {
 
     room.roundNumber += 1;
     room.finishers = [];
-    room.startsAt = now + this.startCountdownMs;
+    // Garage requests can outlast the countdown; start it only when cars are ready.
+    room.startsAt = (liveClock ? Date.now() : now) + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
     room.drivingAccumulator = 0;

@@ -818,3 +818,31 @@ test("one kart moving more than a metre restarts the inactivity window", async (
   engine.tick(21_000);
   assert.equal(room.phase, "finished");
 });
+
+test("live countdown starts after slow garage assignment and repair requests", async (t) => {
+  let clock = 1000;
+  t.mock.method(Date, "now", () => clock);
+  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 1 });
+  const room = engine.createRoom();
+  engine.joinPlayer(room.id, "driver");
+  engine.startPrompting(room.id, room.hostToken);
+  engine.submitPrompt(room.id, "driver", "Kart");
+  clock = 1002;
+  await engine.startRoom(room.id, room.hostToken, async () => {
+    clock += 12_000;
+    return { driver: ["no_engine", "no_steering", "no_brakes", "no_seatbelt"] };
+  });
+  assert.equal(room.startsAt, clock + engine.startCountdownMs);
+  engine.tick(clock);
+  assert.equal(room.phase, "countdown");
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken);
+  clock += 2;
+  await engine.startNextRace(room.id, room.hostToken, async () => {
+    clock += 15_000;
+    return { driver: [] };
+  });
+  assert.equal(room.startsAt, clock + engine.startCountdownMs);
+  engine.tick(clock);
+  assert.equal(room.phase, "countdown");
+});
