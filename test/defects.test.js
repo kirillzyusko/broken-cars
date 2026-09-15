@@ -104,6 +104,10 @@ test("selections prefer the standard compositions but allow safe substitutions",
     defectTestUtils.validSelection(["no_grip", "no_brakes", "no_seatbelt", "loose_wheel"]),
     true,
   );
+  assert.equal(
+    defectTestUtils.validSelection(["sideways_wheels", "no_steering", "backwards_engine", "no_grip"]),
+    true,
+  );
 });
 
 test("every current defect belongs to at least one valid initial combination", () => {
