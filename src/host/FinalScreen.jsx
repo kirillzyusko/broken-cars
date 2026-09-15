@@ -23,7 +23,7 @@ export function FinalScreen({ room, history, hostAction = null }) {
           <p className="tv-final__sub">
             {arcadeMode(room)
               ? `${rounds} ${rounds === 1 ? "sprint" : "sprints"}, same karts, most points wins.`
-              : `Every kart is fully tuned. ${rounds} ${rounds === 1 ? "sprint" : "sprints"}, one garage, zero refunds.`}
+              : `${rounds} ${rounds === 1 ? "sprint" : "sprints"}, one garage, most points wins.`}
           </p>
         </header>
 

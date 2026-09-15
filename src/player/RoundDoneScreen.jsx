@@ -23,18 +23,12 @@ export function RoundDoneScreen({ room, me, history }) {
     card = {
       tone: "",
       label: "THAT'S THE SESSION",
-      text: arcade ? "Four sprints down. Thanks for driving." : "Every kart is fully tuned. Thanks for driving.",
+      text: arcade ? "Four sprints down. Thanks for driving." : "That's the session. Thanks for driving.",
     };
   } else if (arcade && me.car) {
     card = { tone: "", label: "SAME KART, NEXT SPRINT", text: "The host starts the rematch. Points carry over." };
-  } else if (me.car?.defects.length > 0) {
-    card = {
-      tone: "ph-card--yellow",
-      label: "REMEMBER THE SHOUTS",
-      text: "The host opens the pit next. Repeat what your driver shouted and one part comes back.",
-    };
   } else if (me.car) {
-    card = { tone: "", label: "FULLY TUNED", text: "Nothing left to fix. Cruise the next one." };
+    card = { tone: "", label: "PIT STOP NEXT", text: "The host opens the pit. One message per kart." };
   } else {
     card = { tone: "", label: "SPECTATING", text: "No kart this session. Heckle responsibly." };
   }

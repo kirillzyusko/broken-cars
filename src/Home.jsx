@@ -33,7 +33,7 @@ export function Home() {
         <Pill tone="red" className="home__pill">Party mode · phones vs. the garage</Pill>
         <h1 className="home__wordmark">{GAME_NAME}</h1>
         <p className="home__lede">
-          Describe a kart. The garage builds it and quietly leaves parts out. Race it anyway.
+          Describe a car. The garage builds it. Race it.
         </p>
         <StickerButton className="home__button" type="button" onClick={createGame} disabled={creating}>
           {creating ? "OPENING THE GARAGE…" : "OPEN A ROOM"}

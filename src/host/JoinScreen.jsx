@@ -25,7 +25,7 @@ export function JoinScreen({ room, roomId, joinUrl, hostAction }) {
           </div>
           <h1 className="tv-wordmark">{GAME_NAME}</h1>
           <p className="tv-join__lede">
-            Scan the code. Your phone is the garage, the steering wheel, and the complaints department.
+            Scan the code. Your phone is the garage and the steering wheel.
           </p>
         </div>
         <div className="tv-join__bottom">
@@ -39,7 +39,7 @@ export function JoinScreen({ room, roomId, joinUrl, hostAction }) {
             <b>{joinUrl}</b>
             <br />
             <span className="tv-join__url-muted">
-              {room.defectsEnabled === false ? "arcade mode · every part present" : `garage · ${room.selectorName}`}
+              {room.defectsEnabled === false ? "arcade mode" : `garage · ${room.selectorName}`}
             </span>
           </p>
         </div>

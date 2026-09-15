@@ -1,7 +1,6 @@
 import { TRACK_NAME } from "../config.js";
 import { displayRound, kartNameFor } from "../lib/format.js";
 import { decoratePlayers } from "../lib/identity.js";
-import { arcadeMode } from "../lib/standings.js";
 import { Avatar, KartPlaceholder, Pill } from "../components/primitives.jsx";
 
 const CREAM_BADGE = { color: "#faf7f0", onColor: "#141210" };
@@ -14,21 +13,14 @@ export function GridScreen({ room }) {
   const round = displayRound(room);
   const columns = Math.min(Math.max(players.length, 1), 4);
 
-  function mysteryFor(player) {
-    if (arcadeMode(room)) return "Built to spec. Every part present.";
-    if (assigning) return "In the garage. Parts are going missing…";
-    if (repairing) return "One fix going in. Maybe.";
-    if (player.car?.defects.length === 0) return "Fully tuned. Nothing left to break.";
-    return round > 1 ? "Patched? Maybe. Something's still not on it." : "Built. Something's not on it.";
+  function mysteryFor() {
+    if (assigning || repairing) return "In the garage…";
+    return "Built.";
   }
 
-  const footer = arcadeMode(room)
-    ? "Every kart works. It's all down to the driving."
-    : assigning
-      ? "The garage builds every kart — and leaves a few parts out."
-      : repairing
-        ? "At most one part per kart comes back, and only if the report was exact."
-        : "Something's missing on every kart. Nobody gets told what.";
+  const footer = building
+    ? "The garage is working on every kart."
+    : "Karts are ready. Lights go green any second.";
 
   return (
     <div className="tv-screen tv-grid">
@@ -59,7 +51,7 @@ export function GridScreen({ room }) {
               </KartPlaceholder>
               <div className="tv-kart-card__foot">
                 <span className="tv-kart-card__kart">{kartNameFor(player)}</span>
-                <span className="tv-kart-card__mystery">{mysteryFor(player)}</span>
+                <span className="tv-kart-card__mystery">{mysteryFor()}</span>
               </div>
             </li>
           ))}

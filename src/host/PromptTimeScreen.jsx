@@ -19,18 +19,18 @@ export function PromptTimeScreen({ room, now, hostAction }) {
 
   const copy = tuning
     ? {
-        pill: `Round ${round} · one fix each`,
-        title: "FIX ONE THING",
+        pill: `Round ${round} · one message each`,
+        title: "PIT STOP",
         lede: over
-          ? `Pit's closed. ${sent} ${sent === 1 ? "report is" : "reports are"} with the mechanic.`
-          : "Tell the garage the one problem your driver shouted about. Vague wishes fix nothing.",
+          ? `Pit's closed. ${sent} ${sent === 1 ? "message is" : "messages are"} with the garage.`
+          : "One message to the garage. Send it before the pit closes.",
       }
     : {
-        pill: `Round ${round} · one prompt each`,
+        pill: `Round ${round} · one message each`,
         title: "MAKE IT COUNT",
         lede: over
           ? `Time's up. ${sent} ${sent === 1 ? "kart is" : "karts are"} waiting in the garage.`
-          : "One message to the garage. No replies, no hints — you'll see what it did on the track.",
+          : "One message to the garage. Send it before the clock runs out.",
       };
 
   return (

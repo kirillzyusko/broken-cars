@@ -4,12 +4,12 @@ import { Pill } from "../components/primitives.jsx";
 
 function rulesFor(buildSeconds, arcade) {
   return [
-    "Describe your kart: wheels, engine, brakes, seat — whatever you think it needs.",
+    "Describe your car.",
     `You get ${buildSeconds} seconds. One prompt, no edits.`,
     "The garage builds it. Then you race one sprint.",
     arcade
       ? "Then race again. Most points after four sprints wins."
-      : "After each sprint, one pit stop: tell the garage one thing to change.",
+      : "After each sprint, one pit stop: one more message to the garage.",
   ];
 }
 

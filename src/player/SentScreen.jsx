@@ -10,7 +10,7 @@ function copyFor(variant, { remaining }) {
     case "sent":
       return { pill: { tone: "green", text: "Prompt sent" }, title: ["In the", "garage now"], footer: closing };
     case "fix-sent":
-      return { pill: { tone: "green", text: "Fix sent" }, title: ["Back in", "the pit"], footer: pitClosing };
+      return { pill: { tone: "green", text: "Message sent" }, title: ["Back in", "the pit"], footer: pitClosing };
     case "building":
       return {
         pill: { tone: "green", text: "Prompt sent" },
@@ -19,8 +19,8 @@ function copyFor(variant, { remaining }) {
       };
     case "repairing":
       return {
-        pill: { tone: "green", text: "Fix sent" },
-        title: ["The mechanic", "is looking"],
+        pill: { tone: "green", text: "Message sent" },
+        title: ["The garage", "is working"],
         footer: "Lights go green any second",
       };
     case "missed":
@@ -32,11 +32,11 @@ function copyFor(variant, { remaining }) {
     case "missed-fix":
       return {
         pill: { tone: "red", text: "Pit closed" },
-        title: ["No fix", "this round"],
+        title: ["No message", "this round"],
         footer: "Your kart races exactly as it is",
       };
     case "tuned":
-      return { pill: { tone: "green", text: "Fully tuned" }, title: ["Nothing left", "to fix"], footer: pitClosing };
+      return { pill: { tone: "green", text: "All set" }, title: ["Nothing to", "send"], footer: pitClosing };
     case "spectating":
     default:
       return {

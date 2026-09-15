@@ -8,7 +8,6 @@ export function StandingsScreen({ room, history, hostAction }) {
   const dots = roundDots(room);
   const gridTemplateColumns = `110px 1fr ${rounds.map(() => "210px").join(" ")} 180px`;
   const dense = rows.length > 4;
-  const stillBroken = rows.filter((player) => player.car.defects.length > 0).length;
 
   return (
     <div className="tv-screen tv-standings">
@@ -59,7 +58,7 @@ export function StandingsScreen({ room, history, hostAction }) {
         <span className="tv-standings__footer-text">
           {arcadeMode(room)
             ? "Same karts, one more sprint. Points carry over."
-            : `${stillBroken} ${stillBroken === 1 ? "kart still has" : "karts still have"} something missing. Open the pit for one fix each.`}
+            : "Open the pit: one message per kart, then race again."}
         </span>
         {hostAction ? (
           <StickerButton className="tv-button" type="button" disabled={hostAction.disabled} onClick={hostAction.run}>

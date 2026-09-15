@@ -30,7 +30,6 @@ const KEY_MAP = {
 };
 
 const MAX_BUBBLES = 3;
-const FOLLOW_UP_DELAY_MS = 1_600;
 
 function Pad({ control, active, onControl, className = "", children }) {
   function press(event) {
@@ -94,14 +93,12 @@ export function DrivingScreen({ room, me, now, actions }) {
   useEffect(() => {
     if (introRef.current) return;
     introRef.current = true;
-    if (arcade) {
+    if (arcade || room.roundNumber <= 1) {
       pushBubble({ text: room.roundNumber <= 1 ? "Fresh kart. Send it!" : "Same kart, new sprint. Go!", tone: "remark" });
-    } else if (room.roundNumber <= 1) {
-      pushBubble({ text: "Fresh kart. Let's see what they forgot…", tone: "remark" });
     } else if (me.lastRepair) {
-      pushBubble({ text: `Fixed: ${me.lastRepair.label.toLowerCase()}. Let's go!`, tone: "remark" });
+      pushBubble({ text: "The garage made your change. Go!", tone: "remark" });
     } else {
-      pushBubble({ text: "Nothing got fixed. Be exact next time!", tone: "problem" });
+      pushBubble({ text: "No changes this round. Go!", tone: "remark" });
     }
   }, [arcade, me.lastRepair, pushBubble, room.roundNumber]);
 
@@ -133,22 +130,12 @@ export function DrivingScreen({ room, me, now, actions }) {
       timers: timersRef.current,
       alreadyShouted: shoutedRef.current,
     });
-    let followUp = null;
     for (const id of fired) {
-      const first = shoutedRef.current.size === 0;
       shoutedRef.current.add(id);
       const shout = shoutFor(id, { car });
       if (shout) pushBubble(shout);
-      if (first) {
-        followUp = window.setTimeout(
-          () => pushBubble({ text: "Remember that for next round!", tone: "remark" }),
-          FOLLOW_UP_DELAY_MS,
-        );
-      }
     }
-    return () => {
-      if (followUp) window.clearTimeout(followUp);
-    };
+    return undefined;
   }, [car, controls, racing, pushBubble]);
 
   useEffect(() => {

@@ -12,17 +12,13 @@ const RETRY_AFTER_MS = 2_500;
 const COPY = {
   build: {
     eyebrow: "PRIVATE — ONLY YOU SEE THIS",
-    title: () => "Your kart prompt",
-    label: "WHAT GOES ON YOUR KART?",
-    placeholder: "e.g. four round wheels, a big engine, brakes, a seat",
-    note: "The garage won't reply, and it only fits what you name. Be specific.",
+    title: () => "Your car",
+    label: "DESCRIBE YOUR CAR",
   },
   fix: {
-    eyebrow: "PRIVATE — ONE FIX",
-    title: (round) => `Round ${round} fix`,
-    label: "WHAT DID YOUR DRIVER SHOUT?",
-    placeholder: "e.g. there's no brake pedal",
-    note: "Name one exact problem. “Fix everything” fixes nothing.",
+    eyebrow: "PRIVATE — ONLY YOU SEE THIS",
+    title: (round) => `Round ${round} message`,
+    label: "YOUR MESSAGE TO THE GARAGE",
   },
 };
 
@@ -60,8 +56,6 @@ export function PromptScreen({ room, me, now, mode, history, onSubmit }) {
     }, RETRY_AFTER_MS);
     return () => window.clearTimeout(timer);
   }, [sending]);
-
-  const showNote = !fix || history.length < 3;
 
   return (
     <main className="ph-screen ph-screen--blue ph-prompt">
@@ -108,7 +102,6 @@ export function PromptScreen({ room, me, now, mode, history, onSubmit }) {
             id="prompt-field"
             value={draft}
             maxLength={PROMPT_MAX_LENGTH}
-            placeholder={copy.placeholder}
             disabled={sending}
             autoFocus
             onChange={(event) => setDraft(event.target.value.slice(0, PROMPT_MAX_LENGTH))}
@@ -119,8 +112,6 @@ export function PromptScreen({ room, me, now, mode, history, onSubmit }) {
           </div>
         </div>
       </form>
-
-      {showNote ? <p className="ph-note">{copy.note}</p> : null}
 
       <StickerButton className="ph-button" type="button" onClick={submit} disabled={!draft.trim() || sending}>
         {sending ? "SENDING…" : "SEND TO GARAGE"}
