@@ -74,6 +74,8 @@ Both modes run `shared/kart-driving.js` at 120 steps per second and use the expo
 
 Both sandbox and multiplayer start with two seconds of READY, then 3, 2, 1 and GO. The gantry lights fill red from top to bottom and turn green on GO. The same clock drives the lights, numbers and beeps. Hold the accelerator to rev while the kart waits; movement stays locked until GO. R resets the sandbox and repeats the start. Multiplayer uses the server start time, so every client sees the same sequence.
 
+The sandbox has no room, lap timer, or persistent driving HUD. It loops the race background music and shares the saved Music on/off setting. Its canvas emits `kart-audio-state` events with speed in metres per second, throttle, brake, steering, and estimated RPM. Driving audio now uses the local kart mixer described below.
+
 Open [the graphics test level](http://localhost:3001/map/graphics) for four fixed cameras in a full-screen 2×2 grid. Top left shows the island, top right the start line, bottom left the mountain road at driver height, and bottom right the coast. The page has no HUD, controls, cars, or room connection. All views share one map and the race settings in `src/race-lighting.js`, `src/race-water.js`, and `src/race-skybox.js`. Camera positions live in `src/map-graphics-runtime.js`.
 
 Open [the map preview](http://localhost:3001/map) to explore the island without creating a room. Use the camera menu for a whole-island view, broadcast camera, chase camera, or driver view. The lap slider lets you inspect any part of the track.

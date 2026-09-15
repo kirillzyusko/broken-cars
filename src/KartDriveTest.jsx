@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import RaceStartOverlay from "./RaceStartOverlay.jsx";
+import BackgroundMusic from "./BackgroundMusic.jsx";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
 import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
@@ -110,6 +111,7 @@ export default function KartDriveTest() {
     };
   }, []);
   return <>
+    <BackgroundMusic racing />
     <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
     <RaceStartOverlay {...startFrame} />
   </>;
