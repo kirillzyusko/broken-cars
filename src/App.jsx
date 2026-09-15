@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import BackgroundMusic from "./BackgroundMusic.jsx";
 import { QRCodeSVG } from "qrcode.react";
 import { useGameSocket } from "./use-game-socket.js";
 import { createPlayerId } from "./player-identity.js";
@@ -279,6 +280,7 @@ function Host({ roomId }) {
 
   return (
     <main className="app-shell">
+      <BackgroundMusic racing={room?.phase === "racing" || room?.phase === "finished"} />
       <header className="topbar">
         <div>
           <p className="eyebrow">Room {roomId}</p>
@@ -741,5 +743,5 @@ export default function App() {
   if (window.location.pathname === "/map") return <Suspense fallback={<RaceSceneLoading />}><MapPreview /></Suspense>;
   if (route.page === "host") return <Host roomId={route.roomId} />;
   if (route.page === "play") return <Player roomId={route.roomId} />;
-  return <Home />;
+  return <><BackgroundMusic /><Home /></>;
 }

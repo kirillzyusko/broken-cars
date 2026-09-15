@@ -94,3 +94,8 @@ npm run map:pack
 The Blender step reads the saved scene without changing it. It writes temporary exports to `.cache/corsica-gp/`. The pack step writes the public GLBs, map metadata, and the matching route in `src/corsica-track.json`. Keep both metadata copies together. No geometry simplification changes the authored shapes.
 
 `npm test` checks route closure, lane bounds, start/finish alignment, object preservation, embedded textures, and the collision exclusions. In development, the preview's “Check road collisions” button casts 500 rays into the actual loaded road collider. The initial engine check returned 500/500 hits, with all 40 mesh colliders loaded.
+
+## Background music
+
+“Choose Your Racer” loops on the home screen and during waiting, building, tuning, and the countdown. The host switches to “Retro Roundabout” when racing begins and keeps it through the results. Both tracks play at 35% volume. Browsers may require a click or keypress before playback starts. The Music button saves the mute setting. Phone controllers and map inspection pages stay silent. `public/audio/choose-your-racer.mp3` and `public/audio/retro-roundabout.mp3` are compressed copies of the user-supplied WAV files.
+

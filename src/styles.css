@@ -423,3 +423,19 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   height: 100dvh;
   background: #11110f;
 }
+
+.music-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.music-toggle:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
