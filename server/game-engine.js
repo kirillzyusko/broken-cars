@@ -1,3 +1,4 @@
+import { applyKartTuning } from "../shared/kart-tuning.js";
 import { stepKart, DRIVING_STEP } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress, circuitTransform } from "../shared/track-world.js";
 import { getDrivingWorld } from "./driving-world.js";
@@ -731,11 +732,13 @@ export class GameEngine {
     }
 
     racers.forEach((player, index) => {
-      const defectIds = assignments[player.id];
+      const assignment = assignments[player.id];
+      const defectIds = Array.isArray(assignment) ? assignment : assignment?.defectIds;
       if (!Array.isArray(defectIds) || defectIds.length !== 4) {
         throw new Error(`Exactly four broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
+      player.car.tuning = applyKartTuning({}, assignment?.tuning);
       player.controls = { ...EMPTY_CONTROLS };
       player.tuningPrompt = "";
       player.lastRepairId = null;
@@ -779,9 +782,6 @@ export class GameEngine {
     if (room.phase !== "tuning" || now >= room.tuningDeadline) {
       throw new Error("The tuning window is closed.");
     }
-    if (player.car.defectIds.length === 0) {
-      throw new Error("Your car has no defects left to repair.");
-    }
     if (typeof prompt !== "string" || !prompt.trim()) {
       throw new Error("Describe the specific drawbacks you noticed.");
     }
@@ -804,6 +804,7 @@ export class GameEngine {
       repairs = await repairSelector(racers.map((player) => ({
         id: player.id,
         tuningPrompt: player.tuningPrompt,
+        tuning: player.car.tuning,
         defectIds: [...player.car.defectIds],
       })));
     } catch (error) {
@@ -812,9 +813,10 @@ export class GameEngine {
     }
 
     for (const player of racers) {
-      const suggested = Array.isArray(repairs[player.id])
-        ? repairs[player.id]
-        : typeof repairs[player.id] === "string" ? [repairs[player.id]] : [];
+      const decision = repairs[player.id];
+      const suggested = Array.isArray(decision) ? decision
+        : typeof decision === "string" ? [decision] : decision?.defectIds ?? [];
+      player.car.tuning = applyKartTuning(player.car.tuning, decision?.tuning);
       const current = new Set(player.car.defectIds);
       player.lastRepairIds = [...new Set(suggested.filter((id) => current.has(id)))];
       player.lastRepairId = player.lastRepairIds[0] ?? null;

@@ -1,5 +1,6 @@
+import { applyKartTuning } from "../shared/kart-tuning.js";
 export const DEFAULT_KART_SETTINGS = Object.freeze({
-  wheels: "round", engine: "installed", steering: "working", power: "normal", faults: [], paused: false,
+  wheels: "round", engine: "installed", steering: "working", power: "normal", faults: [], paused: false, speedTune: "normal", steeringTune: "normal",
 });
 
 export function applyKartSettings(car, settings) {
@@ -10,6 +11,7 @@ export function applyKartSettings(car, settings) {
   else if (settings.steering !== "working") ids.add(settings.steering);
   if (settings.power !== "normal") ids.add("bad_engine_power");
   car.defectIds = [...ids];
+  car.tuning = applyKartTuning({}, { speed: settings.speedTune, steering: settings.steeringTune });
   car.oneWayTurn = settings.steering === "right" ? "right" : "left";
   car.enginePowerIssue = settings.power === "overpowered" ? "overpowered" : "weak";
   if (!ids.has("stuck_accelerator")) car.acceleratorStuck = false;

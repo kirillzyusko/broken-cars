@@ -1,3 +1,4 @@
+import { tuningMultiplier } from "./kart-tuning.js";
 import { recoverDriving } from "./track-world.js";
 export const STANDARD_MAX_SPEED_MPS = 12;
 export const DRIVING_STEP = 1 / 120;
@@ -123,6 +124,10 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   }
 
 
+  const speedTuning = tuningMultiplier(car.tuning?.speed, 0.35, 8);
+  const steeringTuning = tuningMultiplier(car.tuning?.steering, 0.12, 4);
+  maxSpeed *= speedTuning;
+  engineAcceleration *= speedTuning;
   if (car.offRoad) { maxSpeed *= DRIVING_TUNING.offRoadSpeed; engineAcceleration *= 0.8; rollingDrag += 2; }
   const speedRatio = clamp(car.speed / maxSpeed, 0, 1);
   const braking = canBrake && (controls.stop || (brakePressed && !reversing));
@@ -155,7 +160,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   const turnRadius = DRIVING_TUNING.minimumTurnRadius + DRIVING_TUNING.speedTurnRadius * forwardSpeed ** 2;
   const fullYawRate = Math.min(Math.abs(forwardSpeed) / turnRadius * 180 / Math.PI, DRIVING_TUNING.maximumYawRate);
   const steeringGrip = icyWheels ? 0.45 - 0.33 * clamp(car.speed / 8, 0, 1) : 1;
-  const yawRate = fullYawRate * steeringStrength * (car.drifting ? 1.3 : 1) * steeringGrip;
+  const yawRate = fullYawRate * steeringStrength * (car.drifting ? 1.3 : 1) * steeringGrip * steeringTuning;
   car.heading += (Math.sign(car.steeringAngle) * Math.sign(forwardSpeed) * yawRate + car.angularVelocity) * dt;
   car.angularVelocity *= Math.exp(-8 * dt);
   lateralSpeed *= Math.exp(-(car.drifting ? 0 : tireGrip) * dt);

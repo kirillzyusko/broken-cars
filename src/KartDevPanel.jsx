@@ -23,6 +23,8 @@ export default function KartDevPanel({ settings, onChange, onReset, onDrive, rea
       {select("wheels", "Wheels", [["round", "Round"], ["square_wheels", "Square"], ["sideways_wheels", "Sideways"], ["no_wheels", "Missing"]])}
       {select("engine", "Engine", [["installed", "Installed"], ["backwards_engine", "Backwards"], ["no_engine", "Missing"]])}
       {select("steering", "Steering", [["working", "Working"], ["no_steering", "Missing wheel"], ["reversed_steering", "Reversed"], ["left", "Left only"], ["right", "Right only"]])}
+      {select("speedTune", "Speed tuning", [["very_low", "Very slow"], ["low", "Slower"], ["normal", "Stock"], ["high", "Faster"], ["very_high", "Very fast"], ["extreme", "Ultra fast"]])}
+      {select("steeringTune", "Steering tuning", [["very_low", "Barely turns"], ["low", "Sluggish"], ["normal", "Stock"], ["high", "Responsive"], ["very_high", "Twitchy"], ["extreme", "Extreme"]])}
       <details className="kart-dev-panel__faults">
         <summary>Driving faults</summary>
         <p>These affect driving without changing the mesh.</p>

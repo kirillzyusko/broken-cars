@@ -783,3 +783,28 @@ test("live countdown starts after slow garage assignment and repair requests", a
   engine.tick(clock);
   assert.equal(room.phase, "countdown");
 });
+
+test("prompt tuning persists through repairs and only requested axes change", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 1 });
+  const room = engine.createRoom(1000);
+  engine.joinPlayer(room.id, "driver", 1000);
+  engine.startPrompting(room.id, room.hostToken, 1000);
+  engine.submitPrompt(room.id, "driver", "Make it ultra fast", 1000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({ driver: {
+    defectIds: ["no_engine", "no_brakes", "no_steering", "square_wheels"], tuning: { speed: "extreme" },
+  } }), 1002);
+  const car = room.players.get("driver").car;
+  assert.deepEqual(car.tuning, { speed: 8, steering: 1 });
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 2000);
+  engine.submitTuningPrompt(room.id, "driver", "Fit the missing engine", 2000);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ driver: ["no_engine"] }), 2002);
+  assert.deepEqual(car.tuning, { speed: 8, steering: 1 });
+  assert.ok(!car.defectIds.includes("no_engine"));
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 3000);
+  engine.submitTuningPrompt(room.id, "driver", "Make steering less sensitive", 3000);
+  await engine.startNextRace(room.id, room.hostToken, async () => ({ driver: { defectIds: [], tuning: { steering: "low" } } }), 3002);
+  assert.deepEqual(car.tuning, { speed: 8, steering: 0.6 });
+  assert.deepEqual(engine.serialize(room).players[0].car.tuning, car.tuning);
+});
