@@ -57,6 +57,25 @@ test("braking stops promptly, holding brake reverses, and Space only stops", () 
   assert.deepEqual(car.worldPosition, stopped);
 });
 
+test("holding brake reverses from grass across the real curb onto the road", () => {
+  const world = getDrivingWorld();
+  for (const side of [-1, 1]) {
+    const car = kart();
+    const ground = world.raycast({ x: side * 4.8, y: 1, z: 8 }, { x: side * 4.8, y: -1, z: 8 }, true);
+    car.worldPosition = { x: side * 4.8, y: ground.point.y + CAR_SIZE_WORLD.y / 2, z: 8 };
+    car.heading = side * 90;
+    run(car, {}, DRIVING_STEP, world);
+    assert.equal(car.offRoad, true);
+    const version = car.resetVersion;
+    run(car, { brake: true }, 2.5, world);
+    assert.equal(car.resetVersion, version, "reverse must drive out, not reset the kart");
+    assert.ok(Math.abs(car.worldPosition.x) < 3, "reverse must cross the curb onto the road");
+    assert.ok(car.velocityX * side < 0, "the kart must move backwards toward the road");
+    assert.equal(car.offRoad, false);
+    assert.ok(car.speed > 0 && car.speed <= 6);
+  }
+});
+
 test("world rendering never derives a driving car's position from progress", () => {
   const car = kart();
   car.worldPosition = { x: 80, y: 0.25, z: 45 };
