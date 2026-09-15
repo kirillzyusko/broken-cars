@@ -878,6 +878,9 @@ export class GameEngine {
       }
       if (room.phase === "countdown" && now >= room.startsAt) {
         room.phase = "racing";
+        room.stationarySince = now;
+        room.stationaryPositions = new Map([...room.players.values()].filter((player) => player.car)
+          .map((player) => [player.id, { ...player.car.worldPosition }]));
         room.lastTickAt = now;
         changedRooms.push(room.id);
         continue;
@@ -920,10 +923,21 @@ export class GameEngine {
         room.finishers.push(player.id);
       }
 
-      // The round ends with the first finisher or when time runs out. Everyone
+      const moved = !room.stationaryPositions || racers.some((player) => {
+        const anchor = room.stationaryPositions.get(player.id);
+        const position = player.car.worldPosition;
+        return !anchor || Math.hypot(position.x - anchor.x, position.z - anchor.z) > 1;
+      });
+      if (moved) {
+        room.stationarySince = now;
+        room.stationaryPositions = new Map(racers.map((player) => [player.id, { ...player.car.worldPosition }]));
+      }
+      const allStuck = racers.length > 0 && now - room.stationarySince >= 10_000;
+
+      // End on a finisher, time limit, or ten seconds with all karts stuck. Everyone
       // still on track is placed by how far they got, so the standings and the
       // points separate them instead of sharing one DNF.
-      if (room.finishers.length > 0 || now >= room.raceEndsAt) {
+      if (room.finishers.length > 0 || now >= room.raceEndsAt || allStuck) {
         room.phase = "finished";
         const onTrack = racers
           .filter((player) => player.car.finishedAtMs === null)

@@ -787,6 +787,7 @@ test("the round ends as soon as the first kart finishes and the rest are placed 
 test("when time runs out nobody has finished but everyone is still placed", async () => {
   const { engine, room, cars, park } = await threeKartRace();
   park([120, 300, 200]);
+  cars[0].worldPosition.x += 2; // Movement keeps the inactivity timeout from ending this race.
   engine.tick(50_000);
   assert.equal(room.phase, "racing");
   assert.deepEqual(cars.map((car) => car.rank), [null, null, null]);
@@ -794,4 +795,26 @@ test("when time runs out nobody has finished but everyone is still placed", asyn
   assert.equal(room.phase, "finished");
   assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
   assert.ok(cars.every((car) => car.finishedAtMs === null));
+});
+
+
+test("all karts staying within one metre for ten seconds ends the race", async () => {
+  const { engine, room, cars, park } = await threeKartRace();
+  park([120, 300, 200]);
+  cars[0].worldPosition.x += 0.8;
+  engine.tick(11_999);
+  assert.equal(room.phase, "racing");
+  engine.tick(12_000);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(cars.map((car) => car.rank), [3, 1, 2]);
+});
+
+test("one kart moving more than a metre restarts the inactivity window", async () => {
+  const { engine, room, cars } = await threeKartRace();
+  cars[1].worldPosition.x += 1.1;
+  engine.tick(11_000);
+  engine.tick(20_999);
+  assert.equal(room.phase, "racing");
+  engine.tick(21_000);
+  assert.equal(room.phase, "finished");
 });
