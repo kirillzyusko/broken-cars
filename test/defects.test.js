@@ -237,29 +237,65 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
   );
 });
 
-test("OpenAI assignments with more than one fatal defect are rejected", async () => {
-  await assert.rejects(
-    defectTestUtils.selectWithOpenAI(
-      [{ id: "driver", prompt: "Kart" }],
-      {
-        apiKey: "test-key",
-        fetchImpl: async () => ({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            output_text: JSON.stringify({
-              assignments: [{
-                playerId: "driver",
-                defectIds: ["no_engine", "sideways_wheels", "no_steering", "no_brakes"],
-                avoidedDefectIds: [],
-              }],
-            }),
+test("the server repairs an invalid OpenAI defect suggestion instead of aborting the game", async () => {
+  const assignments = await defectTestUtils.selectWithOpenAI(
+    [{ id: "driver", prompt: "Kart" }],
+    {
+      apiKey: "test-key",
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          output_text: JSON.stringify({
+            assignments: [{
+              playerId: "driver",
+              defectIds: ["no_engine", "sideways_wheels", "no_steering", "no_brakes"],
+              avoidedDefectIds: [],
+            }],
           }),
         }),
-      },
-    ),
-    /invalid defect assignment/,
+      }),
+    },
   );
+
+  assert.equal(assignments.driver.length, 4);
+  assert.equal(defectTestUtils.validSelection(assignments.driver), true);
+});
+
+test("duplicate and missing model suggestions are safely completed by the server", async () => {
+  const assignments = await defectTestUtils.selectWithOpenAI(
+    [
+      { id: "first", prompt: "Kart" },
+      { id: "second", prompt: "Kart" },
+    ],
+    {
+      apiKey: "test-key",
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          output_text: JSON.stringify({
+            assignments: [
+              {
+                playerId: "first",
+                defectIds: ["no_engine", "no_engine", "no_engine", "no_engine"],
+                avoidedDefectIds: [],
+              },
+              {
+                playerId: "first",
+                defectIds: ["no_wheels", "square_wheels", "no_grip", "no_brakes"],
+                avoidedDefectIds: [],
+              },
+            ],
+          }),
+        }),
+      }),
+    },
+  );
+
+  assert.deepEqual(new Set(Object.keys(assignments)), new Set(["first", "second"]));
+  assert.equal(defectTestUtils.validSelection(assignments.first), true);
+  assert.equal(defectTestUtils.validSelection(assignments.second), true);
 });
 
 test("repair selection never falls back to local prompt parsing", async () => {

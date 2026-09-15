@@ -295,12 +295,16 @@ function validSelection(value) {
   );
 }
 
-function validAvoidances(value) {
-  return (
-    Array.isArray(value)
-    && new Set(value).size === value.length
-    && value.every((id) => DEFECT_IDS.has(id))
-  );
+function knownDistinctIds(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((id) => DEFECT_IDS.has(id)))];
+}
+
+function normalizeSuggestion(assignment) {
+  return {
+    defectIds: knownDistinctIds(assignment?.defectIds),
+    avoidedDefectIds: knownDistinctIds(assignment?.avoidedDefectIds),
+  };
 }
 
 function extractOutputText(response) {
@@ -406,22 +410,15 @@ async function selectWithOpenAI(
   }
 
   const payload = JSON.parse(extractOutputText(await response.json()));
-  const byPlayer = new Map(
-    payload.assignments.map((assignment) => [assignment.playerId, assignment]),
-  );
-
-  if (
-    byPlayer.size !== players.length ||
-    players.some((player) => {
-      const assignment = byPlayer.get(player.id);
-      return (
-        !assignment
-        || !validSelection(assignment.defectIds)
-        || !validAvoidances(assignment.avoidedDefectIds)
-      );
-    })
-  ) {
-    throw new Error("OpenAI returned an invalid defect assignment.");
+  const playerIds = new Set(players.map((player) => player.id));
+  const byPlayer = new Map();
+  const assignments = Array.isArray(payload.assignments) ? payload.assignments : [];
+  for (const assignment of assignments) {
+    if (!playerIds.has(assignment?.playerId) || byPlayer.has(assignment.playerId)) continue;
+    byPlayer.set(assignment.playerId, normalizeSuggestion(assignment));
+  }
+  for (const player of players) {
+    if (!byPlayer.has(player.id)) byPlayer.set(player.id, normalizeSuggestion());
   }
 
   return diversifyAssignments(players, byPlayer);
@@ -550,6 +547,7 @@ export const defectTestUtils = {
   diversifyAssignments,
   explicitPromptAvoidances,
   isCompatible,
+  normalizeSuggestion,
   selectRepairsWithOpenAI,
   selectWithOpenAI,
   validSelection,
