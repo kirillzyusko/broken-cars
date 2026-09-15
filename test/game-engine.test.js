@@ -1,4 +1,5 @@
-import { drivingSpawn, sampleTrack, circuitTransform } from "../shared/track-world.js";
+import { racePositions } from "../src/lib/standings.js";
+import { drivingSpawn, sampleTrack, circuitTransform, updateLapProgress } from "../shared/track-world.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFECTS, defectTestUtils, selectDefects } from "../server/defects.js";
@@ -832,4 +833,61 @@ test("server countdown accepts timed starts and broadcasts horns", async () => {
   assert.equal(car.startResult, "boost");
   engine.tick(room.startsAt + 100);
   assert.ok(car.speed > 0);
+});
+
+function driveRouteTo(car, target, offset = 0) {
+  const move = (metres) => {
+    const previous = { ...car.worldPosition };
+    const pose = sampleTrack(metres);
+    car.worldPosition = { x: pose.x - pose.forward.z * offset, y: car.worldPosition.y, z: pose.z + pose.forward.x * offset };
+    car.heading = -pose.yaw;
+    updateLapProgress(car, previous);
+  };
+  for (let metres = -2; metres < target; metres += 0.5) move(metres);
+  move(target);
+}
+
+test("host positions follow route progress after a grass detour, and the first actual line crossing ends the race", async () => {
+  const { engine, room, cars } = await threeKartRace();
+  driveRouteTo(cars[0], 180, 6);
+  driveRouteTo(cars[1], 160);
+  driveRouteTo(cars[2], 200);
+  engine.tick(2050);
+  assert.deepEqual(racePositions(engine.serialize(room)).map((p) => p.id), ["player-3", "player-1", "player-2"]);
+  // Complete the detouring kart's route without fabricating a finished distance.
+  for (let metres = 180.5; metres < 499.99; metres += 0.5) {
+    const previous = { ...cars[0].worldPosition };
+    const pose = sampleTrack(metres);
+    cars[0].worldPosition = { x: pose.x - pose.forward.z * 6, y: pose.y, z: pose.z + pose.forward.x * 6 };
+    updateLapProgress(cars[0], previous);
+  }
+  const previous = { ...cars[0].worldPosition };
+  const finish = sampleTrack(499.99);
+  cars[0].worldPosition = { x: finish.x - finish.forward.z * 6, y: finish.y, z: finish.z + finish.forward.x * 6 };
+  updateLapProgress(cars[0], previous);
+  cars[0].heading = -finish.yaw;
+  cars[0].speed = 4;
+  cars[0].velocityX = finish.forward.x * 4;
+  cars[0].velocityZ = finish.forward.z * 4;
+  engine.tick(2100);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(cars.map((car) => car.rank), [1, 3, 2]);
+  assert.deepEqual(room.finishers, ["player-1"]);
+});
+
+test("two finishes in one physics step are ordered by crossing time rather than speed", async () => {
+  const { engine, room, cars } = await threeKartRace();
+  for (const [index, metres, speed, offset] of [[0, 499.99, 4, -1], [1, 499.95, 12, 1]]) {
+    const car = cars[index];
+    driveRouteTo(car, metres, offset);
+    const pose = sampleTrack(metres);
+    car.speed = speed;
+    car.velocityX = pose.forward.x * speed;
+    car.velocityZ = pose.forward.z * speed;
+  }
+  engine.tick(2050);
+  assert.equal(room.phase, "finished");
+  assert.deepEqual(room.finishers, ["player-1", "player-2"]);
+  assert.ok(cars[0].finishedAtMs < cars[1].finishedAtMs);
+  assert.ok(cars[1].finishedAtMs < 1000 / 120);
 });

@@ -908,9 +908,13 @@ export class GameEngine {
         }
         resolveTrackCollisions(racers, previousPositions, elapsed);
         racers.forEach((player) => {
-          if (player.car.finishedAtMs === null && player.car.resetVersion === previousPositions.get(player.id).resetVersion) updateLapProgress(player.car, previousPositions.get(player.id));
+          if (player.car.finishedAtMs === null && player.car.resetVersion === previousPositions.get(player.id).resetVersion) {
+            const fraction = updateLapProgress(player.car, previousPositions.get(player.id));
+            if (Number.isFinite(fraction)) player.car.finishCrossingAtMs = elapsed - room.drivingAccumulator * 1000 + fraction * DRIVING_STEP * 1000;
+          }
         });
         room.drivingAccumulator -= DRIVING_STEP;
+        if (racers.some((player) => player.car.distance >= TRACK_LENGTH_METERS)) break;
       }
 
       const newlyFinished = [...room.players.values()]
@@ -920,10 +924,10 @@ export class GameEngine {
             player.car.distance >= TRACK_LENGTH_METERS &&
             player.car.finishedAtMs === null,
         )
-        .sort((a, b) => b.car.speed - a.car.speed);
+        .sort((a, b) => (a.car.finishCrossingAtMs ?? elapsed) - (b.car.finishCrossingAtMs ?? elapsed));
 
       for (const player of newlyFinished) {
-        player.car.finishedAtMs = elapsed;
+        player.car.finishedAtMs = player.car.finishCrossingAtMs ?? elapsed;
         player.car.rank = room.finishers.length + 1;
         player.controls = { ...EMPTY_CONTROLS };
         room.finishers.push(player.id);

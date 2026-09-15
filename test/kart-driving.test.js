@@ -414,3 +414,32 @@ test("icy tires strongly understeer at speed and cannot bypass grip loss with dr
   run(icy, { accelerate: true, right: true }, 0.5);
   assert.ok(icy.heading - before > 30, "repair restores responsive turning");
 });
+
+test("grass detours on both sides keep lap progress and crossing the finish completes the lap", () => {
+  for (const offset of [-6, 4.6, 6]) {
+    const car = kart();
+    for (let metres = -2; metres <= ROAD_WORLD_LENGTH + 1; metres += 0.2) {
+      const previous = { ...car.worldPosition };
+      const pose = sampleTrack(metres);
+      car.worldPosition = { x: pose.x - pose.forward.z * offset, y: pose.y, z: pose.z + pose.forward.x * offset };
+      updateLapProgress(car, previous);
+      if (metres > 10 && metres < ROAD_WORLD_LENGTH - 10) assert.ok(Math.abs(car.distance - metres) < 10, `progress froze at ${car.distance} while driving at ${metres}, offset ${offset}`);
+    }
+    assert.equal(car.nextGate, LAP_GATES + 1);
+    assert.equal(car.distance, TRACK_LENGTH_METERS);
+  }
+});
+
+test("taking an island shortcut cannot award a lap", () => {
+  const car = kart();
+  const place = (metres) => {
+    const old = { ...car.worldPosition };
+    car.worldPosition = sampleTrack(metres);
+    updateLapProgress(car, old);
+  };
+  for (let metres = -2; metres <= 20; metres += 0.5) place(metres);
+  place(450);
+  for (let metres = 450; metres <= ROAD_WORLD_LENGTH + 2; metres += 0.5) place(metres);
+  assert.ok(car.nextGate < LAP_GATES);
+  assert.ok(car.distance < TRACK_LENGTH_METERS);
+});
