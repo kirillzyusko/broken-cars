@@ -1,4 +1,4 @@
-import { formatLapTime, ordinal } from "../lib/format.js";
+import { formatRaceResult, ordinal } from "../lib/format.js";
 import { arcadeMode, positionOf, racePositions, sessionOver, tally } from "../lib/standings.js";
 import { Pill } from "../components/primitives.jsx";
 
@@ -52,7 +52,7 @@ export function RoundDoneScreen({ room, me, history }) {
             <span className="ph-row__dot" style={{ background: player.identity.color }} />
             <span className="ph-row__name">{player.name}</span>
             <span className="ph-row__status status-text--idle">
-              {over ? `${pointsById.get(player.id) ?? 0} PTS` : formatLapTime(player.car.finishedAtMs)}
+              {over ? `${pointsById.get(player.id) ?? 0} PTS` : formatRaceResult(player.car)}
             </span>
           </div>
         ))}

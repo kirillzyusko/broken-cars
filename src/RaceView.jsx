@@ -5,9 +5,11 @@ import { decoratePlayers } from "./lib/identity.js";
 
 /**
  * The live Corsica GP render as a bare canvas that fills its box, so the
- * surrounding screen owns the HUD. `view: "driver"` chases `currentPlayerId`;
- * `view: "spectator"` follows the leader from broadcast height. Karts wear
- * their seat colour so they match the badges everywhere else.
+ * surrounding screen owns the HUD. `feeds` (`[{ key, playerId }]` in screen
+ * order) tiles the canvas with one third-person chase camera per racer;
+ * without it `view: "driver"` chases `currentPlayerId` and `view: "spectator"`
+ * follows the leader from broadcast height. Karts wear their seat colour so
+ * they match the badges everywhere else.
  */
 class RaceViewBoundary extends Component {
   constructor(props) {
@@ -49,6 +51,7 @@ function RaceCanvas({
   room,
   currentPlayerId = null,
   view = "spectator",
+  feeds = null,
   className = "",
   onReady,
 }) {
@@ -76,7 +79,7 @@ function RaceCanvas({
         id: `${room.id}:${room.roundNumber}:${room.startsAt}`,
       }
     : null;
-  latestRef.current = { cars, obstacles, currentPlayerId, view, audioActive, startClock, onReady };
+  latestRef.current = { cars, obstacles, currentPlayerId, view, feeds, audioActive, startClock, onReady };
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +108,7 @@ function RaceCanvas({
       scene.audioActive = latestRef.current.audioActive;
       syncCars(scene, latestRef.current.cars);
       syncObstacles(scene, latestRef.current.obstacles);
+      scene.setSplitScreen(latestRef.current.feeds);
       resize();
       latestRef.current.onReady?.();
     }).catch((error) => {
@@ -135,7 +139,8 @@ function RaceCanvas({
     scene.currentPlayerId = currentPlayerId;
     if (scene.view !== view) scene.cameraPlaced = false;
     scene.view = view;
-  }, [cars, obstacles, currentPlayerId, view, audioActive, room]);
+    scene.setSplitScreen(feeds);
+  }, [cars, obstacles, currentPlayerId, view, feeds, audioActive, room]);
 
   return (
     <div className={`race-view ${className}`}>

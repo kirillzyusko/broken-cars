@@ -1,4 +1,4 @@
-import { formatLapTime, kartNameFor, ordinal } from "../lib/format.js";
+import { formatRaceResult, kartNameFor, ordinal } from "../lib/format.js";
 import { arcadeMode, roundDots, roundsIn, tally } from "../lib/standings.js";
 import { Avatar, Pill, RoundDot, StickerButton } from "../components/primitives.jsx";
 
@@ -46,7 +46,7 @@ export function StandingsScreen({ room, history, hostAction }) {
             </div>
             {rounds.map((round) => (
               <span className="tv-standings__time" key={round}>
-                {formatLapTime(player.results[round]?.finishedAtMs ?? null)}
+                {formatRaceResult(player.results[round] ?? null)}
               </span>
             ))}
             <span className="tv-standings__points">{player.points}</span>

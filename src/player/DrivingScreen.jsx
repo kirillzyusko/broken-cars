@@ -1,13 +1,10 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SHOUT_GRACE_MS } from "../config.js";
 import { displayRound, isReversing, kph, ordinal } from "../lib/format.js";
 import { StartSignal } from "../components/StartSignal.jsx";
 import { detectShouts, shoutFor } from "../lib/shouts.js";
 import { positionOf, racers } from "../lib/standings.js";
 import { Avatar } from "../components/primitives.jsx";
-import { useRaceOrientation } from "../lib/use-race-orientation.js";
-
-const RaceView = lazy(() => import("../RaceView.jsx"));
 
 const EMPTY_CONTROLS = Object.freeze({
   accelerate: false,
@@ -65,8 +62,12 @@ function Pad({ control, active, onControl, className = "", children }) {
   );
 }
 
+/**
+ * The phone is a pure controller: the race is watched on the TV, so there is
+ * no scene here. `onSceneReady` is kept for the player test page and fires as
+ * soon as the controller mounts.
+ */
 export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
-  const { portrait, fullscreen, enterLandscape } = useRaceOrientation();
   const { car } = me;
   const racing = room.phase === "racing";
   const position = positionOf(room, me.id);
@@ -137,14 +138,17 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
     });
   }, [car, pushBubble]);
 
+  useEffect(() => {
+    onSceneReady?.();
+  }, [onSceneReady]);
+
   const updateControl = useCallback((control, pressed) => {
-    if (pressed && portrait) return;
     if (controlsRef.current[control] === pressed) return;
     const next = { ...controlsRef.current, [control]: pressed };
     controlsRef.current = next;
     setControls(next);
     actions.setControls(next);
-  }, [actions, portrait]);
+  }, [actions]);
 
   useEffect(() => {
     function releaseAll() {
@@ -160,7 +164,7 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
       document.removeEventListener("visibilitychange", releaseAll);
       releaseAll();
     };
-  }, [actions, portrait]);
+  }, [actions]);
 
   useEffect(() => {
     const handleKey = (event, pressed) => {
@@ -184,7 +188,6 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
 
   return (
     <main className="ph-screen ph-screen--ink ph-drive">
-      <div className="ph-drive__landscape" inert={portrait} aria-hidden={portrait || undefined}>
       <div className="ph-drive__bubbles" aria-live="polite">
         {bubbles.map((bubble) => (
           <div className="ph-bubble" key={bubble.id}>
@@ -205,36 +208,24 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
         </div>
       </div>
 
-      <Suspense fallback={<div className="ph-drive__scene ph-drive__scene--loading">LOADING TRACK…</div>}>
-        <RaceView room={room} currentPlayerId={me.id} view="driver" className="ph-drive__scene" onReady={onSceneReady} />
-      </Suspense>
-
       <div className="ph-drive__controls" aria-label="Kart controls">
         <div className="ph-pads">
-          <Pad control="left" active={controls.left} onControl={updateControl}>
+          <Pad control="left" active={controls.left} onControl={updateControl} className="ph-pad--left">
             <span className="ph-pad__arrow-left" aria-hidden="true" />
           </Pad>
-          <Pad control="right" active={controls.right} onControl={updateControl}>
+          <Pad control="right" active={controls.right} onControl={updateControl} className="ph-pad--right">
             <span className="ph-pad__arrow-right" aria-hidden="true" />
-          </Pad>
-          <Pad control="accelerate" active={controls.accelerate} onControl={updateControl} className="ph-pad--gas">
-            <span className="ph-pad__gas">GAS</span>
           </Pad>
           <Pad control="brake" active={controls.brake} onControl={updateControl} className="ph-pad--brake">
             <span className="ph-pad__brake">BRAKE</span>
+          </Pad>
+          <Pad control="accelerate" active={controls.accelerate} onControl={updateControl} className="ph-pad--gas">
+            <span className="ph-pad__gas">GAS</span>
           </Pad>
         </div>
       </div>
 
       <StartSignal startsAt={room.startsAt} now={now} className="ph-drive__start" />
-      {!fullscreen && document.fullscreenEnabled && <button className="ph-drive__fullscreen" type="button" onClick={enterLandscape}>Full screen</button>}
-      </div>
-      {portrait && <div className="ph-drive__rotate" role="status">
-        <span className="ph-drive__phone-icon" aria-hidden="true" />
-        <h1>Turn to race</h1>
-        <p>Hold your phone sideways to drive.</p>
-        {document.fullscreenEnabled && <button type="button" onClick={enterLandscape}>Enter landscape</button>}
-      </div>}
     </main>
   );
 }

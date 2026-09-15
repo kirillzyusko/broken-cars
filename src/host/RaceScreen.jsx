@@ -3,17 +3,27 @@ import { SHOUT_GRACE_MS, TRACK_NAME } from "../config.js";
 import { displayRound, isReversing, kartNameFor, kph, ordinal } from "../lib/format.js";
 import { publicRemark } from "../lib/shouts.js";
 import { racePositions, racers } from "../lib/standings.js";
+import { splitScreenGrid, splitScreenViews } from "../split-screen.js";
 import { Avatar, Pill } from "../components/primitives.jsx";
 import { StartSignal } from "../components/StartSignal.jsx";
 
 const RaceView = lazy(() => import("../RaceView.jsx"));
 
+/**
+ * The race is a split screen: every racer gets a third-person chase camera in
+ * seat order, tiled like a console party racer, with that kart's HUD drawn
+ * inside its own feed. Three racers leave a spare cell, which shows the island.
+ */
 export function RaceScreen({ room, now }) {
   const order = racePositions(room);
   const positions = new Map(order.map((player, index) => [player.id, index + 1]));
   const cars = racers(room);
   const elapsedMs = Math.max(0, now - room.startsAt);
   const round = displayRound(room);
+  const feeds = cars.map((player) => ({ key: player.id, playerId: player.id }));
+  const views = splitScreenViews(feeds);
+  const { columns, rows } = splitScreenGrid(feeds.length);
+  const byId = new Map(cars.map((player) => [player.id, player]));
 
   return (
     <div className="tv-screen tv-race">
@@ -33,30 +43,40 @@ export function RaceScreen({ room, now }) {
 
       <div className="tv-race__stage">
         <Suspense fallback={<div className="tv-race__loading">LOADING CORSICA GP…</div>}>
-          <RaceView room={room} view="spectator" className="tv-race__view" />
+          <RaceView room={room} feeds={feeds} className="tv-race__view" />
         </Suspense>
-        <StartSignal startsAt={room.startsAt} now={now} className="tv-race__start" />
         <div
-          className="tv-race__hud"
-          style={{ gridTemplateColumns: `repeat(${Math.min(Math.max(cars.length, 1), 4)}, 1fr)` }}
+          className="tv-race__feeds"
+          style={{
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, 1fr)`,
+          }}
         >
-          {cars.map((player) => (
-            <HudCard
-              key={player.id}
-              player={player}
-              position={positions.get(player.id)}
-              count={cars.length}
-              elapsedMs={elapsedMs}
-              trackLength={room.trackLength}
-            />
-          ))}
+          {views.map((view) => {
+            const player = view.playerId ? byId.get(view.playerId) : null;
+            return player ? (
+              <FeedHud
+                key={view.key}
+                player={player}
+                position={positions.get(player.id)}
+                count={cars.length}
+                elapsedMs={elapsedMs}
+                trackLength={room.trackLength}
+              />
+            ) : (
+              <div className="tv-feed tv-feed--island" key={view.key}>
+                <Pill tone="ink" className="tv-pill tv-feed__tag">Corsica GP · Island cam</Pill>
+              </div>
+            );
+          })}
         </div>
+        <StartSignal startsAt={room.startsAt} now={now} className="tv-race__start" />
       </div>
     </div>
   );
 }
 
-function HudCard({ player, position, count, elapsedMs, trackLength }) {
+function FeedHud({ player, position, count, elapsedMs, trackLength }) {
   const { car } = player;
   const remark = publicRemark(player, {
     position,
@@ -67,28 +87,30 @@ function HudCard({ player, position, count, elapsedMs, trackLength }) {
   const positionLabel = car.rank ? ordinal(car.rank) : position ? ordinal(position) : "—";
 
   return (
-    <div className="tv-hud-card">
-      <div className="tv-hud-card__row">
-        <Avatar identity={player.identity} size={54} fontSize={25}>{player.badge}</Avatar>
-        <div className="tv-hud-card__text">
-          <span className="tv-hud-card__name">{player.name}</span>
-          <span className="tv-hud-card__kart">{kartNameFor(player)}</span>
-        </div>
-        <div className="tv-hud-card__position">
-          <span className="tv-hud-card__position-value">{positionLabel}</span>
-          <span className="tv-hud-card__position-of">/ {count}</span>
+    <div className="tv-feed" style={{ "--seat": player.identity.color }}>
+      <div className="tv-feed__driver">
+        <Avatar identity={player.identity} size={16} border={2} fontSize={8}>{player.badge}</Avatar>
+        <div className="tv-feed__driver-text">
+          <span className="tv-feed__name">{player.name}</span>
+          <span className="tv-feed__kart">{kartNameFor(player)}</span>
         </div>
       </div>
-      <div className="tv-hud-card__row tv-hud-card__row--stats">
-        <div className="tv-hud-card__speed">
-          <span className="tv-hud-card__speed-value">{kph(car.speed)}</span>
-          <span className="tv-hud-card__speed-unit">{isReversing(car) ? "KPH · REV" : "KPH"}</span>
-        </div>
-        <span className="tv-hud-card__distance">{Math.round(car.distance)} / {trackLength} M</span>
+      <div className="tv-feed__position">
+        <span className="tv-feed__position-value">{positionLabel}</span>
+        <span className="tv-feed__position-of">/ {count}</span>
       </div>
-      {remark ? (
-        <div className={`tv-hud-card__alert tone--${remark.tone}`} key={remark.text}>{remark.text}</div>
-      ) : null}
+      <div className="tv-feed__bottom">
+        {remark ? (
+          <div className={`tv-feed__alert tone--${remark.tone}`} key={remark.text}>{remark.text}</div>
+        ) : null}
+        <div className="tv-feed__stats">
+          <span className="tv-feed__speed">
+            {kph(car.speed)}
+            <small>{isReversing(car) ? "KPH · REV" : "KPH"}</small>
+          </span>
+          <span className="tv-feed__distance">{Math.round(car.distance)} / {trackLength} M</span>
+        </div>
+      </div>
     </div>
   );
 }
