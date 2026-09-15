@@ -305,6 +305,7 @@ function normalizeSuggestion(assignment) {
   return {
     defectIds: knownDistinctIds(assignment?.defectIds),
     avoidedDefectIds: knownDistinctIds(assignment?.avoidedDefectIds),
+    tuning: assignment?.tuning,
   };
 }
 
@@ -414,7 +415,8 @@ async function selectWithOpenAI(
   const payload = JSON.parse(extractOutputText(await response.json()));
   const playerIds = new Set(players.map((player) => player.id));
   const byPlayer = new Map();
-  for (const assignment of assignments) {
+  const suggestedAssignments = Array.isArray(payload.assignments) ? payload.assignments : [];
+  for (const assignment of suggestedAssignments) {
     if (!playerIds.has(assignment?.playerId) || byPlayer.has(assignment.playerId)) continue;
     byPlayer.set(assignment.playerId, normalizeSuggestion(assignment));
   }
@@ -422,8 +424,11 @@ async function selectWithOpenAI(
     if (!byPlayer.has(player.id)) byPlayer.set(player.id, normalizeSuggestion());
   }
 
-  const assignments = diversifyAssignments(players, byPlayer);
-  return Object.fromEntries(players.map((player) => [player.id, withTuning(assignments[player.id], byPlayer.get(player.id).tuning)]));
+  const diversifiedAssignments = diversifyAssignments(players, byPlayer);
+  return Object.fromEntries(players.map((player) => [
+    player.id,
+    withTuning(diversifiedAssignments[player.id], byPlayer.get(player.id).tuning),
+  ]));
 }
 
 async function selectRepairsWithOpenAI(
