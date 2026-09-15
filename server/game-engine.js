@@ -205,8 +205,11 @@ export class GameEngine {
     if (room.phase !== "waiting") {
       throw new Error("The car build has already started.");
     }
-    if (room.players.size === 0) {
-      throw new Error("At least one driver must join before starting the build.");
+    const hasConnectedDriver = [...room.players.values()].some(
+      (player) => player.connected,
+    );
+    if (!hasConnectedDriver) {
+      throw new Error("At least one connected driver is required to start the build.");
     }
 
     room.phase = "prompting";

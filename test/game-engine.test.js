@@ -33,11 +33,17 @@ test("host cannot start the build before a driver joins", () => {
 
   assert.throws(
     () => engine.startPrompting(room.id, room.hostToken, 1_010),
-    /At least one driver/,
+    /connected driver/,
   );
   assert.throws(
     () => engine.startPrompting(room.id, "wrong", 1_010),
     /credentials/,
+  );
+  engine.joinPlayer(room.id, "player-1", 1_020);
+  engine.disconnectPlayer(room.id, "player-1");
+  assert.throws(
+    () => engine.startPrompting(room.id, room.hostToken, 1_030),
+    /connected driver/,
   );
 });
 

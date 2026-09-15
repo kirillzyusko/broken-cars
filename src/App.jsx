@@ -186,7 +186,8 @@ function Host({ roomId }) {
   const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
   const readyPlayers = room?.players.filter((player) => player.hasPrompt).length ?? 0;
   const playerCount = room?.players.length ?? 0;
-  const canStartBuild = room?.phase === "waiting" && playerCount > 0;
+  const connectedCount = room?.players.filter((player) => player.connected).length ?? 0;
+  const canStartBuild = room?.phase === "waiting" && connectedCount > 0;
   const canStartRace = room?.phase === "prompting" && remaining <= 0 && readyPlayers > 0;
   const isWaiting = room?.phase === "waiting";
 
@@ -244,8 +245,8 @@ function Host({ roomId }) {
           </div>
           <p className="muted">
             {isWaiting
-              ? playerCount > 0
-                ? `${playerCount} ${playerCount === 1 ? "driver is" : "drivers are"} ready. Start when everyone has joined.`
+              ? connectedCount > 0
+                ? `${connectedCount} ${connectedCount === 1 ? "driver is" : "drivers are"} ready. Start when everyone has joined.`
                 : "Drivers can scan the QR code and wait here."
               : room?.phase === "prompting" && remaining > 0
                 ? "The room is locked while everyone builds a car."
@@ -275,7 +276,7 @@ function Host({ roomId }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Drivers</p>
-            <h2>{playerCount} connected</h2>
+            <h2>{connectedCount} connected</h2>
           </div>
           <span>{isWaiting ? "Waiting room open" : `${readyPlayers} cars ready`}</span>
         </div>
