@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { DEFECTS } from "./defects.js";
 
 export const TRACK_LENGTH_METERS = 500;
-export const LOBBY_DURATION_MS = 60_000;
+export const BUILD_DURATION_MS = 60_000;
 export const START_COUNTDOWN_MS = 3_000;
 export const MAX_RACE_DURATION_MS = 90_000;
 
@@ -124,8 +124,8 @@ function publicPlayer(player) {
 }
 
 export class GameEngine {
-  constructor({ lobbyDurationMs = LOBBY_DURATION_MS } = {}) {
-    this.lobbyDurationMs = lobbyDurationMs;
+  constructor({ buildDurationMs = BUILD_DURATION_MS } = {}) {
+    this.buildDurationMs = buildDurationMs;
     this.rooms = new Map();
   }
 
@@ -136,9 +136,9 @@ export class GameEngine {
     const room = {
       id,
       hostToken: token(),
-      phase: "lobby",
+      phase: "waiting",
       createdAt: now,
-      promptDeadline: now + this.lobbyDurationMs,
+      promptDeadline: null,
       startsAt: null,
       raceEndsAt: null,
       lastTickAt: null,
@@ -173,7 +173,7 @@ export class GameEngine {
 
     let player = room.players.get(clientId);
     if (!player) {
-      if (room.phase !== "lobby" || now >= room.promptDeadline) {
+      if (room.phase !== "waiting") {
         throw new Error("This game is no longer accepting new drivers.");
       }
       player = {
@@ -199,11 +199,26 @@ export class GameEngine {
     player.controls = { ...EMPTY_CONTROLS };
   }
 
+  startPrompting(roomId, hostToken, now = Date.now()) {
+    const room = this.requireRoom(roomId);
+    this.assertHost(room, hostToken);
+    if (room.phase !== "waiting") {
+      throw new Error("The car build has already started.");
+    }
+    if (room.players.size === 0) {
+      throw new Error("At least one driver must join before starting the build.");
+    }
+
+    room.phase = "prompting";
+    room.promptDeadline = now + this.buildDurationMs;
+    return room;
+  }
+
   submitPrompt(roomId, clientId, prompt, now = Date.now()) {
     const room = this.requireRoom(roomId);
     const player = room.players.get(clientId);
     if (!player) throw new Error("Join the game before submitting a car.");
-    if (room.phase !== "lobby" || now >= room.promptDeadline) {
+    if (room.phase !== "prompting" || now >= room.promptDeadline) {
       throw new Error("The car prompt window is closed.");
     }
     if (typeof prompt !== "string" || !prompt.trim()) {
@@ -216,7 +231,7 @@ export class GameEngine {
   async startRoom(roomId, hostToken, selector, now = Date.now()) {
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
-    if (room.phase !== "lobby") throw new Error("This game has already started.");
+    if (room.phase !== "prompting") throw new Error("The car build is not active.");
     if (now < room.promptDeadline) throw new Error("The prompt minute is not over yet.");
 
     const racers = [...room.players.values()].filter((player) => player.prompt);
@@ -227,7 +242,7 @@ export class GameEngine {
     try {
       assignments = await selector(racers);
     } catch (error) {
-      room.phase = "lobby";
+      room.phase = "prompting";
       throw error;
     }
 

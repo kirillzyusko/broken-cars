@@ -177,6 +177,20 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 .saved-message { margin: 1rem 0 0; color: #b5c481; font-size: 0.85rem; }
 .status-panel { display: grid; place-items: center; min-height: 18rem; text-align: center; }
 .status-panel p { color: var(--muted); }
+.waiting-panel { align-content: center; }
+.waiting-icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
+  border: 1px solid #6c772f;
+  border-radius: 50%;
+  background: rgba(215, 255, 67, 0.08);
+  color: var(--acid);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
 .spinner { width: 2.5rem; height: 2.5rem; margin-bottom: 1rem; border: 3px solid var(--line); border-top-color: var(--acid); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

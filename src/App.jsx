@@ -37,10 +37,18 @@ function formatSeconds(milliseconds) {
 }
 
 function PhasePill({ phase, connection }) {
+  const phaseLabels = {
+    waiting: "waiting room",
+    prompting: "building",
+    assigning: "breaking cars",
+    countdown: "countdown",
+    racing: "racing",
+    finished: "finished",
+  };
   return (
     <div className="phase-row">
       <span className={`connection connection--${connection}`} />
-      <span>{connection === "connected" ? phase : connection}</span>
+      <span>{connection === "connected" ? (phaseLabels[phase] ?? phase) : connection}</span>
     </div>
   );
 }
@@ -83,7 +91,7 @@ function Home() {
         <p className="eyebrow">Multiplayer party race</p>
         <h1>Broken Cars</h1>
         <p className="lede">
-          Dream up the perfect car. Receive the worst possible parts. Race it anyway.
+          Dream up the perfect car. Race it anyway.
         </p>
         <button className="primary-button" type="button" onClick={createGame} disabled={creating}>
           {creating ? "Opening garage…" : "Create local game"}
@@ -173,11 +181,22 @@ function Host({ roomId }) {
     role: "host",
     hostToken,
   });
-  const localNow = useNow(room?.phase === "lobby" || room?.phase === "countdown");
+  const localNow = useNow(room?.phase === "prompting" || room?.phase === "countdown");
   const now = estimatedServerNow(room, localNow);
-  const remaining = room ? room.promptDeadline - now : 0;
+  const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
   const readyPlayers = room?.players.filter((player) => player.hasPrompt).length ?? 0;
-  const canStart = room?.phase === "lobby" && remaining <= 0 && readyPlayers > 0;
+  const playerCount = room?.players.length ?? 0;
+  const canStartBuild = room?.phase === "waiting" && playerCount > 0;
+  const canStartRace = room?.phase === "prompting" && remaining <= 0 && readyPlayers > 0;
+  const isWaiting = room?.phase === "waiting";
+
+  function triggerHostAction() {
+    if (isWaiting) {
+      send({ type: "start_prompting", hostToken });
+      return;
+    }
+    send({ type: "start_race", hostToken });
+  }
 
   if (!hostToken) {
     return (
@@ -213,24 +232,40 @@ function Host({ roomId }) {
         </section>
 
         <section className="panel timer-panel">
-          <p className="eyebrow">Prompt window</p>
+          <p className="eyebrow">{isWaiting ? "Waiting room" : "Prompt window"}</p>
           <div className="big-timer">
-            {room?.phase === "lobby" ? formatSeconds(remaining) : room?.phase === "assigning" ? "AI" : "GO"}
+            {isWaiting
+              ? "WAIT"
+              : room?.phase === "prompting"
+                ? formatSeconds(remaining)
+                : room?.phase === "assigning"
+                  ? "AI"
+                  : "GO"}
           </div>
           <p className="muted">
-            {remaining > 0
-              ? "Drivers can join and describe a car."
-              : readyPlayers > 0
-                ? "The garage is locked. Start when ready."
-                : "Waiting for at least one car prompt."}
+            {isWaiting
+              ? playerCount > 0
+                ? `${playerCount} ${playerCount === 1 ? "driver is" : "drivers are"} ready. Start when everyone has joined.`
+                : "Drivers can scan the QR code and wait here."
+              : room?.phase === "prompting" && remaining > 0
+                ? "The room is locked while everyone builds a car."
+                : room?.phase === "prompting" && readyPlayers > 0
+                  ? "Build time is over. Start the ride when ready."
+                  : room?.phase === "prompting"
+                    ? "Build time is over. No cars were submitted."
+                    : "The garage is locked."}
           </p>
           <button
             className="primary-button"
             type="button"
-            disabled={!canStart}
-            onClick={() => send({ type: "start_race", hostToken })}
+            disabled={isWaiting ? !canStartBuild : !canStartRace}
+            onClick={triggerHostAction}
           >
-            {room?.phase === "assigning" ? "Breaking cars…" : "Start ride"}
+            {isWaiting
+              ? "Start 1-minute car build"
+              : room?.phase === "assigning"
+                ? "Breaking cars…"
+                : "Start ride"}
           </button>
           <small>Defect selector: {room?.selectorName ?? "—"}</small>
         </section>
@@ -240,9 +275,9 @@ function Host({ roomId }) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Drivers</p>
-            <h2>{room?.players.length ?? 0} connected</h2>
+            <h2>{playerCount} connected</h2>
           </div>
-          <span>{readyPlayers} cars ready</span>
+          <span>{isWaiting ? "Waiting room open" : `${readyPlayers} cars ready`}</span>
         </div>
         <div className="player-grid">
           {room?.players.map((player) => (
@@ -251,7 +286,9 @@ function Host({ roomId }) {
                 <span className={`connection ${player.connected ? "connection--connected" : "connection--reconnecting"}`} />
                 <strong>{player.name}</strong>
               </div>
-              <p>{player.prompt || "Thinking up a car…"}</p>
+              <p>
+                {player.prompt || (isWaiting ? "Ready in the waiting room" : "Building a car…")}
+              </p>
               <DefectList car={player.car} />
             </article>
           ))}
@@ -313,11 +350,11 @@ function Player({ roomId }) {
   const [prompt, setPrompt] = useState("");
   const [controls, setControls] = useState(EMPTY_CONTROLS);
   const controlsRef = useRef(EMPTY_CONTROLS);
-  const localNow = useNow(room?.phase === "lobby" || room?.phase === "countdown");
+  const localNow = useNow(room?.phase === "prompting" || room?.phase === "countdown");
   const now = estimatedServerNow(room, localNow);
   const me = room?.players.find((player) => player.id === playerId);
-  const remaining = room ? room.promptDeadline - now : 0;
-  const promptOpen = room?.phase === "lobby" && remaining > 0;
+  const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
+  const promptOpen = room?.phase === "prompting" && remaining > 0;
   const canDrive = room?.phase === "countdown" || room?.phase === "racing";
 
   const updateControl = useCallback((control, pressed) => {
@@ -386,7 +423,16 @@ function Player({ roomId }) {
       </header>
       <ErrorBanner message={error} onClose={clearError} />
 
-      {room?.phase === "lobby" ? (
+      {room?.phase === "waiting" ? (
+        <section className="panel status-panel waiting-panel">
+          <div className="waiting-icon" aria-hidden="true">✓</div>
+          <p className="eyebrow">You’re in</p>
+          <h2>Waiting for the host</h2>
+          <p>Everyone will get the same 60 seconds to build a car.</p>
+        </section>
+      ) : null}
+
+      {room?.phase === "prompting" ? (
         <section className="panel prompt-panel">
           <div className="prompt-timer">{formatSeconds(remaining)}s</div>
           <p className="eyebrow">Build your dream car</p>
@@ -405,6 +451,7 @@ function Player({ roomId }) {
             </button>
           </form>
           {me?.hasPrompt ? <p className="saved-message">✓ Saved: {me.prompt}</p> : null}
+          {!promptOpen ? <p className="saved-message">Build time is over. Waiting for the host.</p> : null}
         </section>
       ) : null}
 

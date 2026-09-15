@@ -8,7 +8,7 @@ import { GameEngine } from "./game-engine.js";
 import { getSelectorName, selectDefects } from "./defects.js";
 
 const isProduction = process.env.NODE_ENV === "production";
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3001);
 const app = express();
 const server = createServer(app);
 const sockets = new WebSocketServer({ server, path: "/ws", maxPayload: 32 * 1024 });
@@ -110,6 +110,9 @@ sockets.on("connection", (socket) => {
         broadcast(roomId);
       } else if (message.type === "controls" && role === "player") {
         engine.setControls(roomId, playerId, message.controls ?? {});
+      } else if (message.type === "start_prompting" && role === "host") {
+        engine.startPrompting(roomId, message.hostToken);
+        broadcast(roomId);
       } else if (message.type === "start_race" && role === "host") {
         const room = engine.requireRoom(roomId);
         engine.assertHost(room, message.hostToken);
@@ -139,7 +142,9 @@ const simulation = setInterval(() => {
 
 const lobbyUpdates = setInterval(() => {
   for (const room of engine.rooms.values()) {
-    if (["lobby", "assigning", "countdown"].includes(room.phase)) broadcast(room.id);
+    if (["waiting", "prompting", "assigning", "countdown"].includes(room.phase)) {
+      broadcast(room.id);
+    }
   }
 }, 500);
 

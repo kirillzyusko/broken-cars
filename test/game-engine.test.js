@@ -3,40 +3,66 @@ import test from "node:test";
 import { DEFECTS, defectTestUtils, selectDefects } from "../server/defects.js";
 import { GameEngine, TRACK_LENGTH_METERS } from "../server/game-engine.js";
 
-test("players can join and edit a prompt only during the minute", () => {
-  const engine = new GameEngine({ lobbyDurationMs: 100 });
+test("players wait for the host before the shared prompt minute starts", () => {
+  const engine = new GameEngine({ buildDurationMs: 100 });
   const room = engine.createRoom(1_000);
   const player = engine.joinPlayer(room.id, "player-1", 1_010);
 
+  assert.equal(room.phase, "waiting");
+  assert.equal(room.promptDeadline, null);
+  assert.throws(
+    () => engine.submitPrompt(room.id, player.id, "Too early", 1_015),
+    /closed/,
+  );
+
+  engine.startPrompting(room.id, room.hostToken, 1_020);
+  assert.equal(room.phase, "prompting");
+  assert.equal(room.promptDeadline, 1_120);
   engine.submitPrompt(room.id, player.id, "  Rocket shopping cart  ", 1_020);
   assert.equal(player.prompt, "Rocket shopping cart");
   assert.throws(
-    () => engine.submitPrompt(room.id, player.id, "Too late", 1_101),
+    () => engine.submitPrompt(room.id, player.id, "Too late", 1_121),
     /closed/,
   );
-  assert.throws(() => engine.joinPlayer(room.id, "player-2", 1_101), /no longer/);
+  assert.throws(() => engine.joinPlayer(room.id, "player-2", 1_021), /no longer/);
+});
+
+test("host cannot start the build before a driver joins", () => {
+  const engine = new GameEngine({ buildDurationMs: 100 });
+  const room = engine.createRoom(1_000);
+
+  assert.throws(
+    () => engine.startPrompting(room.id, room.hostToken, 1_010),
+    /At least one driver/,
+  );
+  assert.throws(
+    () => engine.startPrompting(room.id, "wrong", 1_010),
+    /credentials/,
+  );
 });
 
 test("host cannot start early and invalid host credentials are rejected", async () => {
-  const engine = new GameEngine({ lobbyDurationMs: 100 });
+  const engine = new GameEngine({ buildDurationMs: 100 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_010);
+  engine.startPrompting(room.id, room.hostToken, 1_020);
   engine.submitPrompt(room.id, "player-1", "Moon buggy", 1_020);
 
   await assert.rejects(
-    engine.startRoom(room.id, room.hostToken, selectDefects, 1_050),
+    engine.startRoom(room.id, room.hostToken, selectDefects, 1_100),
     /not over/,
   );
   await assert.rejects(
-    engine.startRoom(room.id, "wrong", selectDefects, 1_101),
+    engine.startRoom(room.id, "wrong", selectDefects, 1_121),
     /credentials/,
   );
 });
 
 test("race assignment and server-authoritative controls move a working car", async () => {
-  const engine = new GameEngine({ lobbyDurationMs: 1 });
+  const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Fast banana", 1_000);
   await engine.startRoom(
     room.id,
@@ -59,9 +85,10 @@ test("race assignment and server-authoritative controls move a working car", asy
 });
 
 test("a car with no engine cannot accelerate", async () => {
-  const engine = new GameEngine({ lobbyDurationMs: 1 });
+  const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Engine-free supercar", 1_000);
   await engine.startRoom(
     room.id,

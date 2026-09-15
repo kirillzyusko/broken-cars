@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a room, players scan its QR code, everyone has one minute to describe a car, and every submitted car receives one or two broken parts before the race.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared one-minute car-building round once everyone has joined. Every submitted car receives one or two broken parts before the race.
 
 ## Run locally
 
@@ -24,7 +24,7 @@ If the API is unavailable or returns an invalid assignment, the server falls bac
 - React + Vite for the host screen and individual phone controller.
 - Express serves rooms and the web client from one LAN-accessible port.
 - WebSockets carry room state, prompt submissions, and live control intent.
-- The Node game engine owns countdowns, controls, physics, defects, finishing order, disconnect handling, and the 90-second race limit.
+- The Node game engine owns the waiting-room lock, shared build timer, countdowns, controls, physics, defects, finishing order, disconnect handling, and the 90-second race limit.
 - Room state is in memory for this local prototype and expires after six hours. Restarting the server clears it.
 
 ## Commands
