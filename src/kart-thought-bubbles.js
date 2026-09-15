@@ -61,7 +61,7 @@ function loadArtwork(device, defectId, car, entry) {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Could not create kart artwork canvas");
     context.drawImage(cloud, 0, 0, canvas.width, canvas.height);
-    context.drawImage(icon, 24 * 2, 30 * 2, 144 * 2, 144 * 2);
+    context.drawImage(icon, 40 * 2, 46 * 2, 112 * 2, 112 * 2);
     const texture = new pc.Texture(device, {
       name: `Kart fault / ${defectId}`,
       flipY: true,
@@ -131,9 +131,9 @@ export function createKartThoughtBubbles(app) {
         if (!entry.entity.enabled) continue;
         const pose = entry.state.pose ?? entry.state.car.position;
         // Fixed world size follows the kart and shrinks naturally with distance.
-        const width = 1.06;
+        const width = 0.62;
         const height = width / page.aspect;
-        entry.entity.setPosition(pose.x, pose.y + 0.55 + height / 2, pose.z);
+        entry.entity.setPosition(pose.x, pose.y + 0.42 + height / 2, pose.z);
         entry.size[0] = width * frame.scale;
         entry.size[1] = height * frame.scale;
         entry.material.setParameter("bubbleSize", entry.size);
