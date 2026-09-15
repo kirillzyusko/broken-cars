@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized modular karts, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. After a finish, the host can start a rematch with the same cars.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code and claim a seat, and the host starts a shared 15-second car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized modular karts, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering; holding the brake at a standstill reverses. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. In the default arcade mode the host starts a rematch with the same cars after each finish. With broken-parts mode enabled, every submitted car receives three or four broken parts before the first race, and after each ride players get 30 seconds to send one message to the garage, which repairs at most one concretely described defect before racing again.
 
 ## Run locally
 
@@ -24,12 +24,23 @@ The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed
 
 Tuning reports use the same selector. A concrete symptom such as `it slides like ice` can repair `no_grip`, but a generic request such as `make the car fully working` repairs nothing. The server enforces a maximum of one removed defect per car per tuning round independently of the model response.
 
+## Client
+
+The screens follow the Claude Design handoff: a sticker-card arcade look with thick ink outlines, hard offset shadows, and three self-hosted typefaces (Baloo 2, Nunito, JetBrains Mono via `@fontsource`), so the demo needs no internet for fonts.
+
+- `src/host/` renders the TV. `HostScreen.jsx` maps room phases to six screens (join, prompt time, grid, race, standings, final) inside `TvStage.jsx`, a fixed 1920×1080 stage scaled uniformly to any display. The race screen shows one broadcast camera of Corsica GP through `src/RaceView.jsx`, a bare-canvas wrapper around `src/race-scene-runtime.js`, with a HUD card per kart on top; loading the island once per screen keeps the TV to a single map instance. `src/RaceScene.jsx` remains the framed panel used by the map preview page. The host's only controls are the yellow buttons that advance the round.
+- `src/player/` renders the phone. `PlayerScreen.jsx` maps phases to the claim-a-seat screen (name and colour, stored by the server and locked once the build starts), the waiting room, the one-shot prompt screen, the sent/hold states, the driving controller with a driver-view 3D scene above the pads, and the round result.
+- `src/lib/` holds UI-only game logic: seat colours, cross-round standings and points (kept in `sessionStorage`, because the server only carries the current race), each player's prompt history, and `shouts.js`, which turns a defect the player runs into during a race into a driver speech bubble.
+- `src/styles/` has the design tokens plus one stylesheet per surface. `src/styles.css` is the older stylesheet, loaded only by the map preview and test pages under `/map`.
+
+Holding the brake slows a rolling kart to a stop and then reverses it (a backwards engine makes that the way forward). In arcade mode (the default) no parts are missing, the driver only remarks on collisions, and the host races the same karts again after each sprint; the final podium shows after four sprints. Defects are never listed on screen. A phone reveals a part only through the driver's speech bubble once the player uses the affected control, and never within the first ten seconds after that player's first input in a round, and the TV mirrors public car state (overheating, a stuck throttle, finishing) inside that player's camera quadrant. The shout lines use the same wording the repair selector understands, so repeating what the driver said fixes the part.
+
 ## Architecture
 
-- React + Vite for the host screen and individual phone controller. PlayCanvas renders
-  the full Corsica GP island circuit and synchronized cars once a race starts.
+- React + Vite for the TV screen and individual phone controller (see Client above). PlayCanvas renders
+  the full Corsica GP island circuit and synchronized cars on the TV and on the phone while driving.
 - Express serves rooms and the web client from one LAN-accessible port.
-- WebSockets carry room state, prompt submissions, and live control intent.
+- WebSockets carry room state, seat claims, prompt submissions, and live control intent.
 - `server/game.js` exports one framework-independent `BrokenCarsGame` object. It owns the complete public integration surface: rooms, prompts, races, tuning, repairs, controls, ticks, and privacy-filtered snapshots.
 - `server/game-engine.js` runs the state machine, arcade driving model, swept collision detection, and impulse response. Velocity and heading use world coordinates. Car contacts use world-space bounds adjusted for heading, with restitution and friction.
 - `shared/race-config.js` shares the map scale, road width, grid, car sizes, and barriers between server physics and rendering. The renderer wraps those coordinates onto the exported centerline and adds steering and impact yaw to the track direction.
@@ -45,6 +56,7 @@ import { createGame } from "./server/game.js";
 const game = createGame();
 const room = game.createRoom();
 game.joinPlayer(room.id, playerId);
+game.setPlayerProfile(room.id, playerId, { name: "Denise", color: "blue" });
 game.startBuild(room.id, room.hostToken);
 game.submitCarPrompt(room.id, playerId, prompt);
 const state = game.getState(room, { viewerPlayerId: playerId });

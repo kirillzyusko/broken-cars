@@ -39,9 +39,11 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
       cameraFrame.destroy();
       app.scene.skybox = null;
       scene.skybox?.destroy();
-      app.destroy();
+      // Release GPU resources while the graphics device still exists; after
+      // app.destroy() their teardown throws on the destroyed device.
       scene.water?.destroy();
       scene.materials.forEach((m) => m.destroy());
+      app.destroy();
     },
   };
   try {

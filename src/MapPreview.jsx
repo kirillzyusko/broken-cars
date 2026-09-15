@@ -4,6 +4,7 @@ import { TRACK_OBSTACLES } from "../shared/race-config.js";
 import RaceScene from "./RaceScene.jsx";
 import { sampleTrack } from "./race-scene-model.js";
 import track from "./corsica-track.json" with { type: "json" };
+import "./styles.css";
 
 export default function MapPreview() {
   const [distance, setDistance] = useState(0);

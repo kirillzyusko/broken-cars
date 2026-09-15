@@ -42,6 +42,10 @@ export class BrokenCarsGame {
     return this.engine.disconnectPlayer(roomId, playerId);
   }
 
+  setPlayerProfile(roomId, playerId, profile) {
+    return this.engine.setProfile(roomId, playerId, profile);
+  }
+
   startBuild(roomId, hostToken, now) {
     return this.engine.startPrompting(roomId, hostToken, now);
   }

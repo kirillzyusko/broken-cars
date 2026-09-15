@@ -13,8 +13,8 @@ import {
 import { DEFECTS, isGenericRepairRequest } from "./defects.js";
 
 export { TRACK_LENGTH_METERS };
-export const BUILD_DURATION_MS = 60_000;
-export const TUNING_DURATION_MS = 60_000;
+export const BUILD_DURATION_MS = 15_000;
+export const TUNING_DURATION_MS = 30_000;
 export const START_COUNTDOWN_MS = 5_000;
 export const MAX_RACE_DURATION_MS = 90_000;
 export { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
@@ -35,6 +35,8 @@ const COLORS = [
   "#a4d65e",
   "#ff9966",
 ];
+export const PLAYER_COLORS = Object.freeze(["blue", "yellow", "red", "green"]);
+const MAX_NAME_LENGTH = 16;
 const EMPTY_CONTROLS = Object.freeze({
   accelerate: false,
   brake: false,
@@ -54,6 +56,16 @@ function roomCode() {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function cleanName(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/\p{C}/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, MAX_NAME_LENGTH)
+    .trim();
 }
 
 function carColor(index) {
@@ -512,6 +524,8 @@ function publicPlayer(player, viewerPlayerId) {
   const snapshot = {
     id: player.id,
     name: player.name,
+    named: player.named,
+    color: player.color,
     connected: player.connected,
     hasPrompt: Boolean(player.prompt),
     hasTuningPrompt: Boolean(player.tuningPrompt),
@@ -601,6 +615,8 @@ export class GameEngine {
       player = {
         id: clientId,
         name: `Driver ${room.players.size + 1}`,
+        named: false,
+        color: null,
         connected: true,
         prompt: "",
         tuningPrompt: "",
@@ -621,6 +637,34 @@ export class GameEngine {
     if (!player) return;
     player.connected = false;
     player.controls = { ...EMPTY_CONTROLS };
+  }
+
+  setProfile(roomId, clientId, { name, color } = {}) {
+    const room = this.requireRoom(roomId);
+    const player = room.players.get(clientId);
+    if (!player) throw new Error("Join the game before choosing a name.");
+    if (room.phase !== "waiting") {
+      throw new Error("Names and colours lock once the build starts.");
+    }
+    const cleaned = cleanName(name);
+    if (!cleaned) throw new Error("Enter a name first.");
+
+    let chosen = null;
+    if (color !== null && color !== undefined && color !== "") {
+      if (!PLAYER_COLORS.includes(color)) {
+        throw new Error("Pick one of the four colours.");
+      }
+      const taken = [...room.players.values()].some(
+        (other) => other.id !== player.id && other.color === color,
+      );
+      if (taken) throw new Error("That colour is already taken.");
+      chosen = color;
+    }
+
+    player.name = cleaned;
+    player.named = true;
+    player.color = chosen;
+    return player;
   }
 
   startPrompting(roomId, hostToken, now = Date.now()) {
@@ -893,7 +937,7 @@ export class GameEngine {
     viewerPlayerId = null,
   ) {
     return {
-      protocolVersion: 5,
+      protocolVersion: 6,
       id: room.id,
       phase: room.phase,
       serverNow: now,

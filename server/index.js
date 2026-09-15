@@ -121,7 +121,13 @@ sockets.on("connection", (socket) => {
       if (!socket.session) throw new Error("Join a room first.");
       const { roomId, playerId, role } = socket.session;
 
-      if (message.type === "submit_prompt" && role === "player") {
+      if (message.type === "set_profile" && role === "player") {
+        game.setPlayerProfile(roomId, playerId, {
+          name: message.name,
+          color: message.color,
+        });
+        broadcast(roomId);
+      } else if (message.type === "submit_prompt" && role === "player") {
         game.submitCarPrompt(roomId, playerId, message.prompt);
         broadcast(roomId);
       } else if (message.type === "submit_tuning_prompt" && role === "player") {
