@@ -92,7 +92,7 @@ test("every car leaves the garage broken and server-authoritative controls move 
     room.hostToken,
     async () => {
       selectorCalled = true;
-      return { "player-1": ["no_brakes", "no_seatbelt", "no_steering"] };
+      return { "player-1": ["no_brakes", "no_seatbelt", "no_steering", "loose_wheel"] };
     },
     1_002,
   );
@@ -107,7 +107,7 @@ test("every car leaves the garage broken and server-authoritative controls move 
   const car = room.players.get("player-1").car;
   assert.equal(selectorCalled, true);
   assert.deepEqual(car.defectIds, ["no_steering"]);
-  assert.deepEqual(car._queuedDefectIds, ["no_brakes", "no_seatbelt"]);
+  assert.deepEqual(car._queuedDefectIds, ["no_brakes", "no_seatbelt", "loose_wheel"]);
   assert.ok(car.speed > 0);
   assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected full acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
@@ -188,8 +188,8 @@ test("two players see synchronized acceleration and opposite steering movement",
     room.id,
     room.hostToken,
     async () => ({
-      "player-left": ["no_brakes", "no_seatbelt", "no_cooling"],
-      "player-right": ["no_brakes", "no_seatbelt", "no_cooling"],
+      "player-left": ["no_brakes", "no_seatbelt", "no_cooling", "loose_wheel"],
+      "player-right": ["no_brakes", "no_seatbelt", "no_cooling", "loose_wheel"],
     }),
     1_002,
   );
@@ -344,7 +344,7 @@ test("a car with no engine cannot accelerate", async () => {
   await engine.startRoom(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": ["no_engine", "no_brakes", "no_steering"] }),
+    async () => ({ "player-1": ["no_engine", "no_brakes", "no_steering", "loose_wheel"] }),
     1_002,
   );
   room.startsAt = 2_000;
@@ -380,7 +380,7 @@ test("swapped pedals, reversed steering, stuck acceleration, and backwards engin
     room.hostToken,
     async () => Object.fromEntries(defectIds.map((defectId, index) => [
       `player-${index}`,
-      [defectId, "no_seatbelt", "loose_wheel"],
+      [defectId, "no_seatbelt", "loose_wheel", "no_cooling"],
     ])),
     1_002,
   );
@@ -455,8 +455,8 @@ test("room snapshots keep car prompts private from the host and other players", 
     room.id,
     room.hostToken,
     async () => ({
-      "player-1": ["no_brakes", "no_seatbelt", "loose_wheel"],
-      "player-2": ["no_engine", "no_brakes", "no_steering"],
+      "player-1": ["no_brakes", "no_seatbelt", "loose_wheel", "no_cooling"],
+      "player-2": ["no_engine", "no_brakes", "no_steering", "no_grip"],
     }),
     1_002,
   );
@@ -481,14 +481,14 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
     room.id,
     room.hostToken,
     async () => ({
-      "player-1": ["square_wheels", "no_engine", "no_grip"],
+      "player-1": ["square_wheels", "no_engine", "no_grip", "no_steering"],
     }),
     1_002,
   );
 
   const player = room.players.get("player-1");
   assert.deepEqual(player.car.defectIds, ["no_engine"]);
-  assert.deepEqual(player.car._queuedDefectIds, ["no_grip", "square_wheels"]);
+  assert.deepEqual(player.car._queuedDefectIds, ["no_grip", "no_steering", "square_wheels"]);
   const initialSnapshot = engine.serialize(room, { viewerPlayerId: "player-1" });
   assert.deepEqual(initialSnapshot.players[0].car.defectIds, ["no_engine"]);
   assert.deepEqual(initialSnapshot.players[0].car.defects.map((item) => item.id), ["no_engine"]);
@@ -517,7 +517,7 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
 
   assert.deepEqual(repairInput[0].defectIds, ["no_engine"]);
   assert.deepEqual(player.car.defectIds, ["no_grip"]);
-  assert.deepEqual(player.car._queuedDefectIds, ["square_wheels"]);
+  assert.deepEqual(player.car._queuedDefectIds, ["no_steering", "square_wheels"]);
   assert.equal(player.lastRepairId, "no_engine");
   assert.deepEqual(player.lastRepairIds, ["no_engine"]);
   assert.deepEqual(
@@ -538,9 +538,35 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
     async () => ({ "player-1": ["no_grip"] }),
     3_011,
   );
+  assert.deepEqual(player.car.defectIds, ["no_steering"]);
+  assert.deepEqual(player.car._queuedDefectIds, ["square_wheels"]);
+  assert.equal(player.lastRepairId, "no_grip");
+
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 4_000);
+  engine.submitTuningPrompt(room.id, "player-1", "Fix the steering", 4_001);
+  await engine.startNextRace(
+    room.id,
+    room.hostToken,
+    async () => ({ "player-1": ["no_steering"] }),
+    4_011,
+  );
   assert.deepEqual(player.car.defectIds, ["square_wheels"]);
   assert.deepEqual(player.car._queuedDefectIds, []);
-  assert.equal(player.lastRepairId, "no_grip");
+  assert.equal(player.lastRepairId, "no_steering");
+
+  room.phase = "finished";
+  engine.startTuning(room.id, room.hostToken, 5_000);
+  engine.submitTuningPrompt(room.id, "player-1", "Replace the square wheels", 5_001);
+  await engine.startNextRace(
+    room.id,
+    room.hostToken,
+    async () => ({ "player-1": ["square_wheels"] }),
+    5_011,
+  );
+  assert.deepEqual(player.car.defectIds, []);
+  assert.deepEqual(player.car._queuedDefectIds, []);
+  assert.equal(player.lastRepairId, "square_wheels");
 });
 
 test("the engine applies the LLM decision without locally parsing the prompt", async () => {
@@ -556,7 +582,7 @@ test("the engine applies the LLM decision without locally parsing the prompt", a
     room.id,
     room.hostToken,
     async () => ({
-      "player-1": ["no_brakes", "reversed_steering", "no_grip"],
+      "player-1": ["no_brakes", "reversed_steering", "no_grip", "loose_wheel"],
     }),
     1_002,
   );
@@ -597,7 +623,7 @@ test("host snapshots never reveal private tuning prompts", async () => {
     room.id,
     room.hostToken,
     async () => ({
-      "player-1": ["no_brakes", "reversed_steering", "no_grip"],
+      "player-1": ["no_brakes", "reversed_steering", "no_grip", "loose_wheel"],
     }),
     1_002,
   );
@@ -708,7 +734,7 @@ test("a car without brakes cannot reverse either", async () => {
   await engine.startRoom(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "loose_wheel"] }),
+    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "loose_wheel", "no_cooling"] }),
     1_002,
   );
   room.startsAt = 2_000;

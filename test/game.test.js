@@ -10,9 +10,9 @@ test("BrokenCarsGame exposes the complete multi-round integration surface", asyn
     maxRaceDurationMs: 100,
     selectorName: () => "Test mechanic",
     defectSelector: async () => ({
-      player: ["no_engine", "no_grip", "reversed_steering"],
+      player: ["no_engine", "no_grip", "no_steering", "no_brakes"],
     }),
-    repairSelector: async () => ({ player: ["no_engine", "reversed_steering"] }),
+    repairSelector: async () => ({ player: ["no_engine", "no_brakes"] }),
   });
 
   const room = game.createRoom(1_000);

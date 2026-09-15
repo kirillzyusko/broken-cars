@@ -1,6 +1,6 @@
 // Every car leaves the garage with broken parts. Driving tests that want a
 // healthy kart repair it in full first, as players do over the pit stops.
-const STOCK_DEFECTS = ["no_brakes", "no_seatbelt", "no_steering"];
+const STOCK_DEFECTS = ["no_brakes", "no_seatbelt", "no_steering", "loose_wheel"];
 
 export async function startRepairedRace(engine, room, now = 1_002) {
   await engine.startRoom(

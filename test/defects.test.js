@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_OPENAI_MODEL,
+  DEFECT_COMPOSITIONS,
   DEFECT_SEVERITIES,
   DEFECTS,
   defectTestUtils,
@@ -47,6 +48,11 @@ const EXPECTED_DEFECTS_BY_SEVERITY = {
 test("the defect catalog contains the complete demo list", () => {
   assert.deepEqual(DEFECTS.map((defect) => defect.id), EXPECTED_DEFECT_IDS);
   assert.deepEqual(DEFECT_SEVERITIES, ["fatal", "critical", "annoying"]);
+  assert.deepEqual(DEFECT_COMPOSITIONS, [
+    { fatal: 1, critical: 2, annoying: 1 },
+    { fatal: 0, critical: 3, annoying: 1 },
+    { fatal: 0, critical: 2, annoying: 2 },
+  ]);
   assert.deepEqual(
     Object.fromEntries(DEFECT_SEVERITIES.map((severity) => [
       severity,
@@ -67,7 +73,7 @@ test("round-wheel requirements are hard constraints", () => {
   }
 });
 
-test("local assignments return one defect per severity and avoid repeats while possible", async () => {
+test("local assignments return four defects in an allowed composition", async () => {
   const players = Array.from({ length: 2 }, (_, index) => ({
     id: `player-${index}`,
     prompt: index === 0 ? "A car with round wheels" : `Car ${index}`,
@@ -75,37 +81,68 @@ test("local assignments return one defect per severity and avoid repeats while p
   const assignments = await selectDefects(players, { provider: "local" });
   const selected = Object.values(assignments).flat();
 
-  assert.equal(new Set(selected).size, selected.length);
+  assert.ok(new Set(selected).size >= 6);
   assert.equal(assignments["player-0"].includes("square_wheels"), false);
   assert.equal(assignments["player-0"].includes("no_wheels"), false);
   for (const ids of Object.values(assignments)) {
-    assert.equal(ids.length, 3);
-    assert.deepEqual(
-      new Set(ids.map((id) => DEFECTS.find((defect) => defect.id === id).severity)),
-      new Set(DEFECT_SEVERITIES),
-    );
+    assert.equal(ids.length, 4);
+    assert.equal(defectTestUtils.validSelection(ids), true);
   }
 });
 
-test("selections reject multiple defects from the same severity", () => {
+test("selections accept only the supported severity compositions", () => {
   assert.equal(
-    defectTestUtils.validSelection(["no_wheels", "no_engine", "reversed_steering"]),
+    defectTestUtils.validSelection(["no_wheels", "no_engine", "no_grip", "no_brakes"]),
     false,
   );
   assert.equal(
-    defectTestUtils.validSelection(["no_engine", "no_steering", "no_brakes"]),
+    defectTestUtils.validSelection(["no_engine", "no_steering", "no_grip", "no_brakes"]),
     true,
   );
 });
 
 test("every current defect belongs to at least one valid initial combination", () => {
+  const validCombinations = [];
+  for (let first = 0; first < DEFECTS.length; first += 1) {
+    for (let second = first + 1; second < DEFECTS.length; second += 1) {
+      for (let third = second + 1; third < DEFECTS.length; third += 1) {
+        for (let fourth = third + 1; fourth < DEFECTS.length; fourth += 1) {
+          const ids = [first, second, third, fourth].map((index) => DEFECTS[index].id);
+          if (defectTestUtils.validSelection(ids)) validCombinations.push(ids);
+        }
+      }
+    }
+  }
   for (const defect of DEFECTS) {
-    const hasValidCombination = DEFECTS.some((second) => (
-      DEFECTS.some((third) => (
-        defectTestUtils.validSelection([defect.id, second.id, third.id])
-      ))
-    ));
+    const hasValidCombination = validCombinations.some((ids) => ids.includes(defect.id));
     assert.equal(hasValidCombination, true, `${defect.id} is unreachable`);
+  }
+});
+
+test("all three severity compositions can be selected", () => {
+  const samples = [
+    ["no_engine", "no_steering", "no_grip", "no_brakes"],
+    ["no_steering", "backwards_engine", "no_grip", "no_brakes"],
+    ["backwards_engine", "no_grip", "reversed_steering", "loose_wheel"],
+  ];
+
+  for (const defectIds of samples) {
+    const assignments = defectTestUtils.diversifyAssignments(
+      [{ id: "driver", prompt: "Kart" }],
+      new Map([["driver", { defectIds, avoidedDefectIds: [] }]]),
+    );
+    const selected = assignments.driver;
+    assert.equal(defectTestUtils.validSelection(selected), true);
+    assert.deepEqual(
+      Object.fromEntries(DEFECT_SEVERITIES.map((severity) => [
+        severity,
+        selected.filter((id) => DEFECTS.find((defect) => defect.id === id).severity === severity).length,
+      ])),
+      Object.fromEntries(DEFECT_SEVERITIES.map((severity) => [
+        severity,
+        defectIds.filter((id) => DEFECTS.find((defect) => defect.id === id).severity === severity).length,
+      ])),
+    );
   }
 });
 
@@ -125,12 +162,12 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
           assignments: [
             {
               playerId: "round-car",
-              defectIds: ["no_engine", "no_steering", "no_brakes"],
+              defectIds: ["no_engine", "no_steering", "no_grip", "no_brakes"],
               avoidedDefectIds: [],
             },
             {
               playerId: "moon-car",
-              defectIds: ["no_engine", "no_steering", "no_brakes"],
+              defectIds: ["no_engine", "no_steering", "no_grip", "no_brakes"],
               avoidedDefectIds: [],
             },
           ],
@@ -160,13 +197,14 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
     new Set(modelInput.defects.map((defect) => defect.severity)),
     new Set(DEFECT_SEVERITIES),
   );
+  assert.deepEqual(modelInput.allowedSeverityCompositions, DEFECT_COMPOSITIONS);
   assert.deepEqual(
     new Set(modelInput.cars[0].serverDetectedAvoidances),
     new Set(["no_wheels", "square_wheels"]),
   );
 });
 
-test("OpenAI assignments with duplicate severities are rejected", async () => {
+test("OpenAI assignments with an unsupported severity composition are rejected", async () => {
   await assert.rejects(
     defectTestUtils.selectWithOpenAI(
       [{ id: "driver", prompt: "Kart" }],
@@ -179,7 +217,7 @@ test("OpenAI assignments with duplicate severities are rejected", async () => {
             output_text: JSON.stringify({
               assignments: [{
                 playerId: "driver",
-                defectIds: ["no_wheels", "no_engine", "reversed_steering"],
+                defectIds: ["no_wheels", "no_engine", "no_grip", "no_brakes"],
                 avoidedDefectIds: [],
               }],
             }),
