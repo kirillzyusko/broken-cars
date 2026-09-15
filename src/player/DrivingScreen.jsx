@@ -5,7 +5,6 @@ import { StartSignal } from "../components/StartSignal.jsx";
 import { detectShouts, shoutFor } from "../lib/shouts.js";
 import { positionOf, racers } from "../lib/standings.js";
 import { Avatar } from "../components/primitives.jsx";
-import { arcadeMode } from "../lib/standings.js";
 
 const RaceView = lazy(() => import("../RaceView.jsx"));
 
@@ -78,10 +77,8 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
   const shoutedRef = useRef(new Set());
   const timersRef = useRef(new Map());
   const firstInputRef = useRef(null);
-  const introRef = useRef(false);
   const finishedRef = useRef(false);
   const collisionRef = useRef(null);
-  const arcade = arcadeMode(room);
 
   const pushBubble = useCallback((bubble) => {
     setBubbles((current) => [
@@ -89,19 +86,6 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
       { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, ...bubble },
     ].slice(-MAX_BUBBLES));
   }, []);
-
-  // Opening line: the result of the last pit stop, or a fresh-kart remark.
-  useEffect(() => {
-    if (introRef.current) return;
-    introRef.current = true;
-    if (arcade || room.roundNumber <= 1) {
-      pushBubble({ text: room.roundNumber <= 1 ? "Fresh kart. Send it!" : "Same kart, new sprint. Go!", tone: "remark" });
-    } else if (me.lastRepair) {
-      pushBubble({ text: "The garage made your change. Go!", tone: "remark" });
-    } else {
-      pushBubble({ text: "No changes this round. Go!", tone: "remark" });
-    }
-  }, [arcade, me.lastRepair, pushBubble, room.roundNumber]);
 
   // Collisions are public, not secret parts, so they are called out at once,
   // but a long scrape along the scenery should not flood the bubble zone.
