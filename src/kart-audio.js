@@ -32,6 +32,7 @@ export class KartAudioMixer {
     this.context = context;
     this.buffers = buffers;
     this.voices = new Map();
+    this.hornSerials = new Map();
     this.retiring = new Set();
     this.shots = new Set();
     this.cooldowns = new Map();
@@ -154,6 +155,21 @@ export class KartAudioMixer {
   update(cars, currentId, camera, dt, active = true) {
     if (this.disposed) return;
     this.target(this.master.gain, active ? 0.6 : 0, 0.12);
+    // Horns belong to all players on the host, regardless of engine range.
+    // Track them outside engine voices so retiring a distant voice loses no events.
+    const present = new Set(cars.map((car) => car.id));
+    for (const id of this.hornSerials.keys()) if (!present.has(id)) this.hornSerials.delete(id);
+    cars.forEach((car, index) => {
+      const serial = car.hornSerial ?? 0;
+      const previous = this.hornSerials.get(car.id);
+      if (active && previous !== undefined && serial > previous) {
+        const pan = cars.length > 1 ? (index / (cars.length - 1) - 0.5) * 0.8 : 0;
+        // The server enforces the cooldown. A second audio cooldown would drop
+        // valid presses when snapshots arrive slightly closer together.
+        this.oneShot("horn", `${car.id}:horn`, 0.32, pan, 0);
+      }
+      this.hornSerials.set(car.id, serial);
+    });
     if (!active) { for (const voice of this.voices.values()) this.retire(voice); return; }
     const anchor = cars.find((c) => c.id === currentId) ?? cars[0];
     if (!anchor) { for (const voice of this.voices.values()) this.retire(voice); return; }
@@ -185,14 +201,10 @@ export class KartAudioMixer {
           this.oneShot("lift", `${car.id}:lift`, volume * 0.12, pan, 0.65);
         }
       }
-      if (voice.hornSerial !== undefined && (car.hornSerial ?? 0) > voice.hornSerial) {
-        this.oneShot("horn", `${car.id}:horn`, volume * 0.45, pan, 1.5);
-      }
       if (voice.collisionCount !== undefined && (car.collisionCount ?? 0) > voice.collisionCount
         && car.lastCollision?.impactSpeed > 1) {
         this.impact(volume * clamp(car.lastCollision.impactSpeed / 15, 0.12, 0.45), pan);
       }
-      voice.hornSerial = car.hornSerial ?? 0;
       voice.collisionCount = car.collisionCount ?? 0;
       voice.mix = mix;
     }
@@ -207,6 +219,7 @@ export class KartAudioMixer {
     }
     for (const { source, gain, panner } of this.shots) { source.onended = null; source.stop(); source.disconnect(); gain.disconnect(); panner.disconnect(); }
     this.voices.clear(); this.retiring.clear(); this.shots.clear(); this.cooldowns.clear();
+    this.hornSerials.clear();
     this.master.disconnect(); this.compressor.disconnect();
   }
 }

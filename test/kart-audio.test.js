@@ -124,3 +124,33 @@ test("remote horns and impacts play once per event and ignore old snapshots", ()
   assert.equal(oscillators.length, 1);
   mixer.dispose();
 });
+
+test("all four racers' horns remain audible outside the engine range", () => {
+  const { mixer } = setup();
+  const cars = Array.from({ length: 4 }, (_, index) => ({ ...car, id: `driver-${index}`, hornSerial: 0, position: { x: index * 100, z: 0 } }));
+  mixer.update(cars, null, {}, 1 / 60);
+  assert.equal(mixer.voices.size, 1);
+  mixer.update(cars.map((c) => ({ ...c, hornSerial: 1 })), null, {}, 1 / 60);
+  assert.equal(mixer.shots.size, 4);
+  assert.ok([...mixer.shots].every((shot) => shot.gain.gain.value === 0.32));
+  mixer.update(cars.map((c) => ({ ...c, hornSerial: 1 })), null, {}, 1 / 60);
+  assert.equal(mixer.shots.size, 4, "repeated snapshots must not replay horns");
+  mixer.dispose();
+});
+
+test("retiring engine voices and snapshot timing do not swallow valid horn presses", () => {
+  const { mixer, context } = setup();
+  const rival = { ...car, id: "rival", hornSerial: 0 };
+  mixer.update([car, rival], car.id, {}, 1 / 60);
+  const distant = { ...rival, position: { x: 100, z: 0 } };
+  mixer.update([car, distant], car.id, {}, 1 / 60);
+  assert.equal(mixer.voices.has("rival"), false);
+  mixer.update([car, { ...distant, hornSerial: 1 }], car.id, {}, 1 / 60);
+  context.currentTime = 1.49;
+  mixer.update([car, { ...distant, hornSerial: 2 }], car.id, {}, 1 / 60);
+  assert.equal(mixer.shots.size, 2, "server-approved horns must survive network jitter");
+  mixer.update([car, { ...distant, hornSerial: 3 }], car.id, {}, 1 / 60, false);
+  mixer.update([car, { ...distant, hornSerial: 3 }], car.id, {}, 1 / 60, true);
+  assert.equal(mixer.shots.size, 2, "muted events must not replay on resume");
+  mixer.dispose();
+});
