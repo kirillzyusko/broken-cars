@@ -12,6 +12,7 @@ import { useGameSocket } from "./use-game-socket.js";
 import { createPlayerId } from "./player-identity.js";
 
 const RaceScene = lazy(() => import("./RaceScene.jsx"));
+const MapPreview = lazy(() => import("./MapPreview.jsx"));
 
 const EMPTY_CONTROLS = {
   accelerate: false,
@@ -109,6 +110,7 @@ function Home() {
         <button className="primary-button" type="button" onClick={createGame} disabled={creating}>
           {creating ? "Opening garage…" : "Create local game"}
         </button>
+        <a className="map-preview-link" href="/map">Explore Corsica GP</a>
         {error ? <p className="inline-error">{error}</p> : null}
       </section>
     </main>
@@ -730,6 +732,7 @@ function Player({ roomId }) {
 
 export default function App() {
   const route = routeFromPath();
+  if (window.location.pathname === "/map") return <Suspense fallback={<RaceSceneLoading />}><MapPreview /></Suspense>;
   if (route.page === "host") return <Host roomId={route.roomId} />;
   if (route.page === "play") return <Player roomId={route.roomId} />;
   return <Home />;

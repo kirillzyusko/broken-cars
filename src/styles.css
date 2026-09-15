@@ -379,3 +379,24 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
 }
+
+.race-world__camera { display: flex; align-items: center; gap: .5rem; margin-left: auto; font-size: .75rem; color: var(--muted); }
+.race-world__camera select { padding: .45rem; background: #20271f; border: 1px solid #46503d; border-radius: 6px; color: #f4f4e9; }
+.race-world__loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 1rem; color: #f4f4e9; background: #223c3b; }
+.race-world__loading .spinner { margin: 0; }
+.map-preview { width: min(1500px, calc(100% - 2rem)); }
+.map-preview-link { display: block; margin-top: 1rem; }
+.map-preview a, .map-preview-link { color: var(--acid); }
+.map-preview__heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.map-preview__heading h1 { font-size: clamp(2rem, 4vw, 3.5rem); }
+.map-preview__controls { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem; }
+.map-preview__controls label { flex: 1; min-width: 180px; }
+.map-preview__controls button { padding: .65rem .85rem; border-radius: 8px; border: 1px solid var(--line); color: var(--ink); background: #292e22; cursor: pointer; }
+.map-preview__controls button:first-child { background: var(--acid); color: #111; border-color: var(--acid); font-weight: 700; }
+.map-preview__controls input { display: block; width: 100%; accent-color: var(--acid); }
+.map-preview__controls output { flex-basis: 100%; font-size: .85rem; color: var(--acid); }
+@media (max-width: 600px) {
+  .race-world__heading { flex-wrap: wrap; }
+  .race-world__camera span { display: none; }
+  .race-world__heading > span { display: none; }
+}
