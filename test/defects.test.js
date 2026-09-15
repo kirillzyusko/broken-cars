@@ -191,7 +191,7 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
           assignments: [
             {
               playerId: "round-car",
-              defectIds: ["no_engine", "no_steering", "no_grip", "no_brakes"],
+              defectIds: ["no_wheels", "no_steering", "backwards_engine", "no_brakes"],
               avoidedDefectIds: [],
             },
             {
