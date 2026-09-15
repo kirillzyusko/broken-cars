@@ -1,0 +1,62 @@
+{
+  "source": "https://sounds.spriters-resource.com/wii_u/mariokart8/asset/398013/",
+  "samples": {
+    "idle": {
+      "url": "/audio/kart/idle.wav",
+      "loop": true,
+      "duration": 1.76446875,
+      "sourceFile": "Karts/K_Std/idle_NoiseReduction.b.32.wav",
+      "sourceSha256": "e172eb9282573222c5ea0e7aad130d4f27d2ab65bd89c00aea11618d9ceed1df",
+      "originalLoopSamples": [
+        58184,
+        115447
+      ]
+    },
+    "low": {
+      "url": "/audio/kart/low.wav",
+      "loop": true,
+      "duration": 1.9480625,
+      "sourceFile": "Karts/K_Std/AccelBeforeStart.q.32.wav",
+      "sourceSha256": "89b682d39c9ce00be220683fb06338896a922631bbb8ab8911b05e48d283e8f0",
+      "originalLoopSamples": [
+        67830,
+        130968
+      ]
+    },
+    "high": {
+      "url": "/audio/kart/high.wav",
+      "loop": true,
+      "duration": 1.94746875,
+      "sourceFile": "Karts/K_Std/AccelNormal.ry.32.wav",
+      "sourceSha256": "3f84ea08353d6881c4d590fcba769fe01b8ef28dbaad642310033d2a08a60398",
+      "originalLoopSamples": [
+        235684,
+        298803
+      ]
+    },
+    "brake": {
+      "url": "/audio/kart/brake.wav",
+      "loop": false,
+      "duration": 1.133375,
+      "sourceFile": "Karts/KT_200cc/pSE_KT_03BRK_200cc.aa.wav",
+      "sourceSha256": "fe166d44ad97351e2dd3d90195734b1808e30a42bc1ac40cad2ce295a64856d1",
+      "originalLoopSamples": null
+    },
+    "lift": {
+      "url": "/audio/kart/lift.wav",
+      "loop": false,
+      "duration": 0.71165625,
+      "sourceFile": "Karts/K_Std/DashEngineStop.ry.32.wav",
+      "sourceSha256": "c84529aa3efa4d1d6cb3615cfb2617f011d952a2b0c1c91b41507ae4f986ec2e",
+      "originalLoopSamples": null
+    },
+    "horn": {
+      "url": "/audio/kart/horn.wav",
+      "loop": false,
+      "duration": 0.35584375,
+      "sourceFile": "Karts/K_Std/pSE_HORN_K_STD.wav",
+      "sourceSha256": "985775b3826f0309f1d4edc94863f357631c597148efc8286376477fd7aa95ed",
+      "originalLoopSamples": null
+    }
+  }
+}

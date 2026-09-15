@@ -16,7 +16,8 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
   const raceElapsedMs = Math.max(0, (room.serverNow ?? 0) - (room.startsAt ?? 0));
   const recentImpact = focusCar?.lastCollision && raceElapsedMs - focusCar.lastCollision.atMs < 900
     ? focusCar.lastCollision : null;
-  latestRef.current = { cars, obstacles, currentPlayerId, cameraMode, onReady };
+  const audioActive = room.phase === "racing" || room.phase === "countdown";
+  latestRef.current = { cars, obstacles, currentPlayerId, cameraMode, onReady, audioActive };
 
   useEffect(() => { setCameraMode(view); }, [view]);
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
       if (!loaded) return;
       scene = loaded;
       sceneRef.current = scene;
+      scene.audioActive = latestRef.current.audioActive;
       scene.currentPlayerId = latestRef.current.currentPlayerId;
       scene.view = latestRef.current.cameraMode;
       syncCars(scene, latestRef.current.cars);
@@ -55,12 +57,13 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    scene.audioActive = audioActive;
     syncCars(scene, cars);
     syncObstacles(scene, obstacles);
     scene.currentPlayerId = currentPlayerId;
     if (scene.view !== cameraMode) scene.cameraPlaced = false;
     scene.view = cameraMode;
-  }, [cars, obstacles, currentPlayerId, cameraMode]);
+  }, [cars, obstacles, currentPlayerId, cameraMode, audioActive]);
 
   return (
     <section className="panel race-world" aria-label="Live 3D race">

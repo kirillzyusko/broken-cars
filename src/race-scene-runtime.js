@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { createKartAudio } from "./kart-audio.js";
 import { updateKartCamera } from "./kart-camera.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
@@ -27,9 +28,11 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   const cameraFrame = setupContactShadows(app, camera);
   app.start();
   const scene = {
+    audio: createKartAudio(), audioActive: true,
     app, camera, cameraFrame, view, currentPlayerId, carStates: new Map(), obstacleStates: new Map(), materials: [],
     map: null, skybox: null, water: null, kartAssets: null, cameraPlaced: false,
     destroy() {
+      scene.audio.dispose();
       cameraFrame.destroy();
       app.scene.skybox = null;
       scene.skybox?.destroy();
@@ -160,6 +163,8 @@ function updateScene(scene, dt) {
     state.entity.setEulerAngles(0, pose.yaw, 0);
   }
   updateCamera(scene, dt);
+  const cars = [...scene.carStates.values()].map((state) => ({ ...state.car, position: state.pose }));
+  scene.audio.update(cars, scene.currentPlayerId, { yaw: scene.camera.getEulerAngles().y }, dt, scene.audioActive);
 }
 
 const routeCenter = track.points.reduce((a, p) => ({ x: a.x + p[0] / track.points.length, z: a.z + p[2] / track.points.length }), { x: 0, z: 0 });

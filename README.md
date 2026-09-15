@@ -106,3 +106,12 @@ The Blender step reads the saved scene without changing it. It writes temporary 
 ## Background music
 
 “Choose Your Racer” loops on the home screen and during waiting, building, tuning, and the countdown. The host switches to “Retro Roundabout” when racing begins and keeps it through the results. Both tracks play at 35% volume. Browsers may require a click or keypress before playback starts. The Music button saves the mute setting. Phone controllers and map inspection pages stay silent. `public/audio/choose-your-racer.mp3` and `public/audio/retro-roundabout.mp3` are compressed copies of the user-supplied WAV files.
+
+
+### Kart sounds
+
+Driving sounds use the [Mario Kart 8 kart sound pack](https://sounds.spriters-resource.com/wii_u/mariokart8/asset/398013/) selected for this prototype. Six samples live in `public/audio/kart`; source filenames, hashes, and original loop markers are in its manifest. See that folder's README for the import command.
+
+`src/kart-audio.js` mixes three persistent engine loops per audible kart: idle, low revs, and high revs. Speed and throttle set engine load and RPM; gain, pitch, and filtering ease between states without restarting a recording. Nearby rivals are quieter and pan left or right. Braking and throttle-release effects play as separate voices with cooldowns, so they can finish naturally. A compressor limits the combined level. The existing music remains separate.
+
+Press a driving key or click the game to enable browser audio. **H** sounds the horn locally; **M** mutes driving sounds. Hidden tabs pause audio; a key or click resumes it. Leaving the scene closes its audio context and releases all voices. The sandbox and multiplayer use the same mixer; multiplayer throttle and brake telemetry loads after the existing Node server restarts.
