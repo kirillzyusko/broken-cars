@@ -64,6 +64,8 @@ npm run check    # tests and production build
 
 ## Corsica GP map
 
+The [kart driving test](http://localhost:3001/map/drive) shows only the circuit and the round-wheel kart from a chase camera. Use WASD or arrow keys to drive, Space to brake, and R to reset. It runs locally without a room, timer, HUD, or background music. This test uses a simple local driving model, not the multiplayer collision solver. The canvas emits `kart-audio-state` events with speed in meters per second, throttle, brake, steering, and an estimated RPM for sound development. No engine sound is wired up yet.
+
 Open [the graphics test level](http://localhost:3001/map/graphics) for four fixed cameras in a full-screen 2×2 grid. Top left shows the island, top right the start line, bottom left the mountain road at driver height, and bottom right the coast. The page has no HUD, controls, cars, or room connection. All views share one map and the race settings in `src/race-lighting.js`, `src/race-water.js`, and `src/race-skybox.js`. Camera positions live in `src/map-graphics-runtime.js`.
 
 Open [the map preview](http://localhost:3001/map) to explore the island without creating a room. Use the camera menu for a whole-island view, broadcast camera, chase camera, or driver view. The lap slider lets you inspect any part of the track.
@@ -98,4 +100,3 @@ The Blender step reads the saved scene without changing it. It writes temporary 
 ## Background music
 
 “Choose Your Racer” loops on the home screen and during waiting, building, tuning, and the countdown. The host switches to “Retro Roundabout” when racing begins and keeps it through the results. Both tracks play at 35% volume. Browsers may require a click or keypress before playback starts. The Music button saves the mute setting. Phone controllers and map inspection pages stay silent. `public/audio/choose-your-racer.mp3` and `public/audio/retro-roundabout.mp3` are compressed copies of the user-supplied WAV files.
-
