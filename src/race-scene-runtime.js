@@ -198,7 +198,9 @@ function updateScene(scene, dt) {
     state.entity.setPosition(axle.x, axle.y, axle.z);
     state.entity.setEulerAngles(0, pose.yaw, 0);
     const previous = state.wheelPose;
-    const travel = previous ? (pose.x - previous.x) * pose.forward.x + (pose.z - previous.z) * pose.forward.z : 0;
+    const sideways = state.car.defectIds?.includes("sideways_wheels");
+    const wheelForward = sideways ? { x: -pose.forward.z, z: pose.forward.x } : pose.forward;
+    const travel = previous ? (pose.x - previous.x) * wheelForward.x + (pose.z - previous.z) * wheelForward.z : 0;
     state.visual.updateMotion(Math.abs(travel) < 2 ? travel : 0, (start, end) =>
       scene.app.systems.rigidbody.raycastFirst(new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
         { filterCollisionMask: pc.BODYGROUP_STATIC }));

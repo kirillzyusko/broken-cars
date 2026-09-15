@@ -20,35 +20,8 @@ export const CAR_FRONT_AXLE_OFFSET_WORLD = ((kartMin[2] + kartMax[2]) / 2 - kart
 const GRID_COLUMN_OFFSET = 0.9;
 const GRID_ROW_OFFSET = 3;
 
-export const TRACK_OBSTACLES = Object.freeze([
-  Object.freeze({
-    id: "left-barrier",
-    label: "Left lane barrier",
-    distance: 115,
-    lane: -0.62,
-    width: 0.34,
-    length: 6,
-    color: "#f7c948",
-  }),
-  Object.freeze({
-    id: "center-barrier",
-    label: "Center lane barrier",
-    distance: 250,
-    lane: 0,
-    width: 0.34,
-    length: 6,
-    color: "#ff5a36",
-  }),
-  Object.freeze({
-    id: "right-barrier",
-    label: "Right lane barrier",
-    distance: 385,
-    lane: 0.62,
-    width: 0.34,
-    length: 6,
-    color: "#f7c948",
-  }),
-]);
+// Scenery collisions come from the island mesh, without prototype lane blocks.
+export const TRACK_OBSTACLES = Object.freeze([]);
 
 // The map tour still accepts a distance and lane. Driving uses worldPosition.
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
