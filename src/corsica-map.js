@@ -38,7 +38,11 @@ export async function loadCorsicaMap(app, isCancelled) {
   visual.name = "Corsica GP / scenery";
   warmMapFoliage(visual);
   app.root.addChild(visual);
+  const asphaltMaterials = new Set();
   for (const render of visual.findComponents("render")) {
+    for (const mesh of render.meshInstances) {
+      if (mesh.material.name === "Circuit / graphite asphalt") asphaltMaterials.add(mesh.material);
+    }
     const bounds = track.instanceBounds[render.entity.name];
     if (bounds) {
       const aabb = new pc.BoundingBox();
@@ -49,6 +53,14 @@ export async function loadCorsicaMap(app, isCancelled) {
       }
     }
     if (/Ocean|grass|flowers|patch-/i.test(render.entity.name)) render.castShadows = false;
+  }
+  for (const material of asphaltMaterials) {
+    // Dry asphalt should not mirror the sky, even at grazing camera angles.
+    material.useSkybox = false;
+    material.reflectivity = 0;
+    material.glossInvert = false;
+    material.gloss = 0;
+    material.update();
   }
 
   const collision = collisionAsset.resource.instantiateRenderEntity();
