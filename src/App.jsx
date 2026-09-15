@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import HostLoadingScreen from "./HostLoadingScreen.jsx";
 import { Home } from "./Home.jsx";
 import { HostScreen } from "./host/HostScreen.jsx";
 import { PlayerScreen } from "./player/PlayerScreen.jsx";
@@ -23,7 +24,7 @@ export default function App() {
   if (pathname === "/map") return <Suspense fallback={null}><MapPreview /></Suspense>;
 
   const route = routeFromPath();
-  if (route.page === "host") return <HostScreen roomId={route.roomId} />;
+  if (route.page === "host") return <HostLoadingScreen><HostScreen roomId={route.roomId} /></HostLoadingScreen>;
   if (route.page === "play") return <PlayerScreen roomId={route.roomId} />;
-  return <Home />;
+  return <HostLoadingScreen><Home /></HostLoadingScreen>;
 }
