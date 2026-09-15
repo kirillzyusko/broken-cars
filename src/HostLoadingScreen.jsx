@@ -4,22 +4,14 @@ import { IntroAudioContext } from "./intro-audio-context.js";
 
 import "./host-loading-screen.css";
 
-const SEEN_KEY = "broken-cars:host-intro-seen";
+// Keep client-side navigation quiet, but replay after each full page reload.
 let seenInPage = false;
 
-function hasSeenIntro() {
-  if (seenInPage) return true;
-  try { return sessionStorage.getItem(SEEN_KEY) === "true"; }
-  catch { return false; }
-}
-
 export default function HostLoadingScreen({ children }) {
-  const [visible, setVisible] = useState(() => !hasSeenIntro());
+  const [visible, setVisible] = useState(() => !seenInPage);
   const [reducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const finish = useCallback(() => {
     seenInPage = true;
-    try { sessionStorage.setItem(SEEN_KEY, "true"); }
-    catch { /* Keep working when browser storage is unavailable. */ }
     setVisible(false);
   }, []);
 

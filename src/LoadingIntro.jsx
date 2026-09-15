@@ -17,7 +17,22 @@ export default function LoadingIntro({ preview = false, reducedMotion = false, o
       setNeedsSound(true);
       video.play().catch(() => { if (active) onFinish?.(); });
     });
-    return () => { active = false; video.pause(); };
+    // A click, tap or keypress can unlock sound when audible autoplay is blocked.
+    const enableSound = () => {
+      if (!active || !video.muted) return;
+      video.muted = false;
+      video.play().then(() => { if (active) setNeedsSound(false); }).catch(() => {
+        if (active) video.muted = true;
+      });
+    };
+    window.addEventListener("click", enableSound);
+    window.addEventListener("keydown", enableSound);
+    return () => {
+      active = false;
+      window.removeEventListener("click", enableSound);
+      window.removeEventListener("keydown", enableSound);
+      video.pause();
+    };
   }, [preview, reducedMotion, onFinish]);
 
   const replay = () => {
