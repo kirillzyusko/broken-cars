@@ -432,3 +432,33 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   cursor: pointer;
 }
 .music-toggle:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+
+.kart-dev-panel {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 20;
+  width: min(265px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  box-shadow: 0 8px 24px #0004;
+}
+.kart-dev-panel > summary { padding: 0.9rem; cursor: pointer; font-weight: 700; }
+.kart-dev-panel > summary span { margin-left: 0.5rem; color: var(--muted); font-weight: 400; }
+.kart-dev-panel__body { padding: 0 0.9rem 0.9rem; }
+.kart-dev-panel p { color: var(--muted); font-size: 0.75rem; line-height: 1.4; margin-bottom: 0.8rem; }
+.kart-dev-panel__select { display: grid; grid-template-columns: 1fr 1.25fr; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; }
+.kart-dev-panel select { min-width: 0; width: 100%; padding: 0.4rem; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.kart-dev-panel__faults { border-block: 1px solid var(--line); padding: 0.7rem 0; margin: 0.8rem 0; }
+.kart-dev-panel__faults summary { cursor: pointer; margin-bottom: 0.4rem; }
+.kart-dev-panel__check { display: flex; align-items: center; gap: 0.45rem; margin: 0.6rem 0; }
+.kart-dev-panel input[type="checkbox"] { accent-color: var(--acid); width: 16px; height: 16px; }
+.kart-dev-panel__actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.8rem; }
+.kart-dev-panel button { padding: 0.5rem; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.kart-dev-panel button:disabled { opacity: 0.5; cursor: wait; }
+.kart-dev-panel :is(button, select, input, summary):focus-visible { outline: 2px solid var(--acid); outline-offset: 2px; }

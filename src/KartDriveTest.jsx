@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import RaceStartOverlay from "./RaceStartOverlay.jsx";
 import BackgroundMusic from "./BackgroundMusic.jsx";
+import KartDevPanel from "./KartDevPanel.jsx";
+import { applyKartSettings, DEFAULT_KART_SETTINGS } from "./kart-dev-settings.js";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
 import { DRIVING_STEP, stepKart, STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
@@ -11,12 +13,18 @@ import "./styles.css";
 
 export default function KartDriveTest() {
   const canvasRef = useRef(null);
+  const resetRef = useRef(null);
+  const [settings, setSettings] = useState(() => ({ ...DEFAULT_KART_SETTINGS }));
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const [ready, setReady] = useState(false);
   const [startFrame, setStartFrame] = useState({ startsAt: null, now: 0 });
   useEffect(() => {
     let cancelled = false;
     let scene;
     const keys = new Set();
     const drive = { color: "#f2c94c", defectIds: [], heat: 0 };
+    let appliedSettings;
     resetDriving(drive);
     let accumulator = 0;
     let drivingTime = 0;
@@ -32,23 +40,20 @@ export default function KartDriveTest() {
     const supported = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyR"]);
     const clearKeys = () => keys.clear();
     const keyDown = (event) => {
+      if (/INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY/.test(event.target?.tagName) || event.target?.isContentEditable) return;
       if (!supported.has(event.code)) return;
       event.preventDefault();
       keys.add(event.code);
       if (event.code === "KeyR") {
         if (event.repeat) return;
-        resetDriving(drive);
-        accumulator = 0;
-        if (scene) {
-          scene.cameraPlaced = false;
-          beginCountdown();
-        }
+        resetRef.current?.();
       }
     };
     const keyUp = (event) => keys.delete(event.code);
     window.addEventListener("keydown", keyDown);
     window.addEventListener("keyup", keyUp);
     window.addEventListener("blur", clearKeys);
+    window.addEventListener("focusin", clearKeys);
     document.addEventListener("visibilitychange", clearKeys);
     const resize = () => scene?.app.resizeCanvas(Math.max(1, canvasRef.current.clientWidth), Math.max(1, canvasRef.current.clientHeight));
     const observer = new ResizeObserver(resize);
@@ -65,10 +70,25 @@ export default function KartDriveTest() {
       const buffer = await response.arrayBuffer();
       if (cancelled) return;
       const world = createDrivingWorld(buffer);
+      resetRef.current = () => {
+        clearKeys();
+        resetDriving(drive);
+        drive.acceleratorStuck = false;
+        drive.heat = 0;
+        accumulator = 0;
+        scene.cameraPlaced = false;
+        beginCountdown();
+        publish();
+      };
+      setReady(true);
       resize();
       publish();
       beginCountdown();
       scene.updateDriving = (elapsed) => {
+        if (appliedSettings !== settingsRef.current) {
+          appliedSettings = settingsRef.current;
+          applyKartSettings(drive, appliedSettings);
+        }
         const now = performance.now();
         if (lastOverlayAt <= startClock.startsAt + 1100 && now - lastOverlayAt >= 50) {
           setStartFrame({ startsAt: startClock.startsAt, now });
@@ -78,9 +98,9 @@ export default function KartDriveTest() {
         const brake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
         const stop = keys.has("Space");
         const steering = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
-        if (now < startClock.startsAt) {
+        if (now < startClock.startsAt || appliedSettings.paused) {
           accumulator = 0;
-          drive.throttle = throttle;
+          drive.throttle = appliedSettings.paused ? 0 : throttle;
           drive.braking = false;
           publish();
           return;
@@ -107,13 +127,18 @@ export default function KartDriveTest() {
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       window.removeEventListener("blur", clearKeys);
+      window.removeEventListener("focusin", clearKeys);
       document.removeEventListener("visibilitychange", clearKeys);
       scene?.destroy();
+      resetRef.current = null;
     };
   }, []);
   return <>
     <BackgroundMusic racing />
-    <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
+    <canvas ref={canvasRef} className="map-graphics-test" tabIndex={0} onPointerDown={(event) => event.currentTarget.focus()}
+      aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
+    <KartDevPanel settings={settings} onChange={setSettings} ready={ready} onReset={() => resetRef.current?.()}
+      onDrive={() => { setSettings((current) => ({ ...current, paused: false })); canvasRef.current?.focus(); }} />
     <RaceStartOverlay {...startFrame} />
   </>;
 }
