@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useGameSocket } from "./use-game-socket.js";
+import { createPlayerId } from "./player-identity.js";
 
 const EMPTY_CONTROLS = {
   accelerate: false,
@@ -225,10 +226,19 @@ function Host({ roomId }) {
       <div className="host-grid">
         <section className="panel qr-panel">
           <div className="qr-wrap"><QRCodeSVG value={joinUrl} size={190} level="M" /></div>
-          <div>
+          <div className="join-details">
             <p className="eyebrow">Scan to drive</p>
             <h2>{roomId}</h2>
             <p className="muted join-url">{joinUrl}</p>
+            <aside className="wifi-note" aria-label="Wi-Fi requirement">
+              <strong>Same Wi-Fi required</strong>
+              <p>Everyone needs to connect to the same Wi-Fi access point as this host.</p>
+              <div className="wifi-name wifi-name--connected">
+                <span className="connection" aria-hidden="true" />
+                <span>Current Wi-Fi</span>
+                <b>STARLINK</b>
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -288,7 +298,13 @@ function Host({ roomId }) {
                 <strong>{player.name}</strong>
               </div>
               <p>
-                {player.prompt || (isWaiting ? "Ready in the waiting room" : "Building a car…")}
+                {isWaiting
+                  ? "Ready in the waiting room"
+                  : player.hasPrompt
+                    ? "Car submitted ✓"
+                    : room?.phase === "prompting"
+                      ? "Building a car…"
+                      : "No car submitted"}
               </p>
               <DefectList car={player.car} />
             </article>
@@ -309,7 +325,7 @@ function getPlayerId(roomId) {
   const key = `broken-cars:player:${roomId}`;
   let playerId = localStorage.getItem(key);
   if (!playerId) {
-    playerId = crypto.randomUUID();
+    playerId = createPlayerId(window.crypto);
     localStorage.setItem(key, playerId);
   }
   return playerId;
@@ -357,6 +373,7 @@ function Player({ roomId }) {
   const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
   const promptOpen = room?.phase === "prompting" && remaining > 0;
   const canDrive = room?.phase === "countdown" || room?.phase === "racing";
+  const connectedPlayers = room?.players.filter((player) => player.connected).length ?? 0;
 
   const updateControl = useCallback((control, pressed) => {
     const next = { ...controlsRef.current, [control]: pressed };
@@ -426,10 +443,19 @@ function Player({ roomId }) {
 
       {room?.phase === "waiting" ? (
         <section className="panel status-panel waiting-panel">
-          <div className="waiting-icon" aria-hidden="true">✓</div>
+          <div className="waiting-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
           <p className="eyebrow">You’re in</p>
-          <h2>Waiting for the host</h2>
-          <p>Everyone will get the same 60 seconds to build a car.</p>
+          <h2>Waiting for other players</h2>
+          <p>
+            {connectedPlayers <= 1
+              ? "You’re the first driver. The host will start when everyone is here."
+              : `${connectedPlayers} drivers are in the room. The host will start when everyone is here.`}
+          </p>
+          <small>Everyone gets the same 60 seconds to build a car.</small>
         </section>
       ) : null}
 

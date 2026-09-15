@@ -107,20 +107,23 @@ function advanceCar(player, dt, raceElapsedMs) {
   car.distance = Math.min(TRACK_LENGTH_METERS, car.distance + car.speed * dt);
 }
 
-function publicPlayer(player) {
-  return {
+function publicPlayer(player, viewerPlayerId) {
+  const isOwner = player.id === viewerPlayerId;
+  const snapshot = {
     id: player.id,
     name: player.name,
     connected: player.connected,
     hasPrompt: Boolean(player.prompt),
-    prompt: player.prompt,
     car: player.car
       ? {
           ...player.car,
+          name: isOwner ? player.car.name : `${player.name}'s car`,
           defects: player.car.defectIds.map((id) => DEFECT_MAP.get(id)),
         }
       : null,
   };
+  if (isOwner) snapshot.prompt = player.prompt;
+  return snapshot;
 }
 
 export class GameEngine {
@@ -324,8 +327,14 @@ export class GameEngine {
     return changedRooms;
   }
 
-  serialize(room, now = Date.now(), selectorName = "Local randomizer") {
+  serialize(
+    room,
+    now = Date.now(),
+    selectorName = "Local randomizer",
+    viewerPlayerId = null,
+  ) {
     return {
+      protocolVersion: 2,
       id: room.id,
       phase: room.phase,
       serverNow: now,
@@ -335,7 +344,8 @@ export class GameEngine {
       trackLength: TRACK_LENGTH_METERS,
       selectorName,
       finishers: [...room.finishers],
-      players: [...room.players.values()].map(publicPlayer),
+      players: [...room.players.values()].map((player) =>
+        publicPlayer(player, viewerPlayerId)),
     };
   }
 

@@ -48,8 +48,12 @@ app.post("/api/rooms", (request, response) => {
 app.get("/api/rooms/:roomId", (request, response) => {
   const room = engine.getRoom(request.params.roomId);
   if (!room) return response.status(404).json({ error: "Game room not found." });
-  return response.json(engine.serialize(room, Date.now(), getSelectorName()));
+  return response.json(serializeRoom(room));
 });
+
+function serializeRoom(room, viewerPlayerId = null) {
+  return engine.serialize(room, Date.now(), getSelectorName(), viewerPlayerId);
+}
 
 function send(socket, payload) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload));
@@ -62,13 +66,15 @@ function sendError(socket, error) {
 function broadcast(roomId) {
   const room = engine.getRoom(roomId);
   if (!room) return;
-  const message = JSON.stringify({
-    type: "room_state",
-    room: engine.serialize(room, Date.now(), getSelectorName()),
-  });
   for (const client of sockets.clients) {
     if (client.readyState === WebSocket.OPEN && client.session?.roomId === room.id) {
-      client.send(message);
+      const viewerPlayerId = client.session.role === "player"
+        ? client.session.playerId
+        : null;
+      send(client, {
+        type: "room_state",
+        room: serializeRoom(room, viewerPlayerId),
+      });
     }
   }
 }

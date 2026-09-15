@@ -128,3 +128,38 @@ test("local selector always returns allowed compatible defects", async () => {
   }
   if (originalProvider) process.env.LLM_PROVIDER = originalProvider;
 });
+
+test("room snapshots advertise the current client protocol", () => {
+  const engine = new GameEngine();
+  const room = engine.createRoom();
+  assert.equal(engine.serialize(room).protocolVersion, 2);
+});
+
+test("room snapshots keep car prompts private from the host and other players", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1 });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.joinPlayer(room.id, "player-2", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-1", "Secret banana car", 1_000);
+  engine.submitPrompt(room.id, "player-2", "Secret moon buggy", 1_000);
+
+  const hostSnapshot = engine.serialize(room);
+  const playerSnapshot = engine.serialize(room, 1_001, "Local randomizer", "player-1");
+
+  assert.equal("prompt" in hostSnapshot.players[0], false);
+  assert.equal("prompt" in hostSnapshot.players[1], false);
+  assert.equal(playerSnapshot.players[0].prompt, "Secret banana car");
+  assert.equal("prompt" in playerSnapshot.players[1], false);
+
+  await engine.startRoom(
+    room.id,
+    room.hostToken,
+    async () => ({ "player-1": ["no_brakes"], "player-2": ["no_engine"] }),
+    1_002,
+  );
+
+  const racingHostSnapshot = engine.serialize(room);
+  assert.equal(racingHostSnapshot.players[0].car.name, "Driver 1's car");
+  assert.equal(racingHostSnapshot.players[1].car.name, "Driver 2's car");
+});

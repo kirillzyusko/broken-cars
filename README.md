@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` on the host computer. Phones must be on the same network as the host; the QR code automatically uses the first LAN IPv4 address. If it chooses the wrong network adapter, copy `.env.example` to `.env` and set `PUBLIC_URL`, then export those values before starting the server (Node does not load `.env` automatically).
+Open `http://localhost:3001` on the host computer. For the demo, connect the host and every phone to the `STARLINK` Wi-Fi access point. The host screen displays that network name, and the QR code automatically uses the first LAN IPv4 address. If the QR code chooses the wrong network adapter, set `PUBLIC_URL` before starting the server.
 
 The default defect selector is local, random, and needs no account or internet access. To let an LLM make the randomized assignment, start with:
 
@@ -30,7 +30,7 @@ If the API is unavailable or returns an invalid assignment, the server falls bac
 ## Commands
 
 ```bash
-npm run dev      # development server with Vite middleware (reload after edits)
+npm run dev      # development server (restart after server edits)
 npm test         # core game-engine tests
 npm run build    # production client bundle
 npm start        # serve the built client

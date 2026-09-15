@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+const CLIENT_PROTOCOL_VERSION = 2;
+
 export function useGameSocket({ roomId, role, hostToken, clientId }) {
   const socketRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -29,6 +31,10 @@ export function useGameSocket({ roomId, role, hostToken, clientId }) {
       socket.addEventListener("message", (event) => {
         const message = JSON.parse(event.data);
         if (message.type === "room_state") {
+          if (message.room.protocolVersion !== CLIENT_PROTOCOL_VERSION) {
+            setError("The game server is out of date. Restart it with npm run dev.");
+            return;
+          }
           setRoom({ ...message.room, receivedAt: Date.now() });
         }
         if (message.type === "error") setError(message.message);
