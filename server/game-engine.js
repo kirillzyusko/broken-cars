@@ -86,13 +86,11 @@ function createCar(player, index, defectIds) {
     (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(left)?.severity) ?? Number.MAX_SAFE_INTEGER)
     - (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(right)?.severity) ?? Number.MAX_SAFE_INTEGER)
   ));
-  const [activeDefectId, ...queuedDefectIds] = orderedDefectIds;
   return {
     ...driving,
     name: player.prompt,
     color: carColor(index),
-    defectIds: activeDefectId ? [activeDefectId] : [],
-    _queuedDefectIds: queuedDefectIds,
+    defectIds: orderedDefectIds,
     distance: 0,
     speed: 0,
     velocityX: 0,
@@ -104,10 +102,10 @@ function createCar(player, index, defectIds) {
     massKg: CAR_MASS_KG,
     heat: 0,
     acceleratorStuck: false,
-    oneWayTurn: activeDefectId === "one_way_steering"
+    oneWayTurn: orderedDefectIds.includes("one_way_steering")
       ? (index % 2 === 0 ? "left" : "right")
       : null,
-    enginePowerIssue: activeDefectId === "bad_engine_power"
+    enginePowerIssue: orderedDefectIds.includes("bad_engine_power")
       ? (index % 2 === 0 ? "weak" : "overpowered")
       : null,
     collisionCount: 0,
@@ -117,19 +115,6 @@ function createCar(player, index, defectIds) {
     finishedAtMs: null,
     rank: null,
   };
-}
-
-function promoteNextDefect(car) {
-  if (car.defectIds.length > 0) return;
-  const nextDefectId = car._queuedDefectIds.shift();
-  if (!nextDefectId) return;
-  car.defectIds = [nextDefectId];
-  if (nextDefectId === "one_way_steering") {
-    car.oneWayTurn = car.spawnIndex % 2 === 0 ? "left" : "right";
-  }
-  if (nextDefectId === "bad_engine_power") {
-    car.enginePowerIssue = car.spawnIndex % 2 === 0 ? "weak" : "overpowered";
-  }
 }
 
 function resetCarForRace(car) {
@@ -545,7 +530,6 @@ function publicPlayer(player, viewerPlayerId) {
   const {
     _lastCollisionKey: _ignoredCollisionKey,
     _collisionCooldownUntilMs: _ignoredCollisionCooldown,
-    _queuedDefectIds: _ignoredQueuedDefectIds,
     ...publicCar
   } = player.car ?? {};
   const snapshot = {
@@ -561,7 +545,6 @@ function publicPlayer(player, viewerPlayerId) {
     car: player.car
       ? {
           ...publicCar,
-          activeDefectId: player.car.defectIds[0] ?? null,
           name: isOwner ? player.car.name : `${player.name}'s car`,
           defects: player.car.defectIds.map((id) => publicDefect(player.car, id)),
         }
@@ -837,7 +820,6 @@ export class GameEngine {
       player.lastRepairId = player.lastRepairIds[0] ?? null;
       const repaired = new Set(player.lastRepairIds);
       player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));
-      promoteNextDefect(player.car);
       player.controls = { ...EMPTY_CONTROLS };
       resetCarForRace(player.car);
     }

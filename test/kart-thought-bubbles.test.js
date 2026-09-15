@@ -28,14 +28,11 @@ test("repaired and finished karts stay quiet, and remaining faults reflect repai
   assert.equal(thoughtBubbleFrame({ defectIds: ["no_brakes"] }, 6000).defectId, "no_brakes");
 });
 
-test("only the active fault appears, with no later pages revealing other categories", () => {
-  const many = { activeDefectId: "no_grip", defectIds: [...car.defectIds, "no_grip"] };
-  assert.equal(thoughtBubbleFrame(many, 6000).defectId, "no_grip");
-  assert.equal(thoughtBubbleFrame(many, 13999).defectId, "no_grip");
+test("all remaining faults appear together without rotating pages", () => {
+  const many = { defectIds: [...car.defectIds, "no_grip"] };
+  assert.deepEqual(thoughtBubbleFrame(many, 6000).ids, many.defectIds);
+  assert.deepEqual(thoughtBubbleFrame(many, 10000).ids, many.defectIds);
   assert.equal(thoughtBubbleFrame(many, 14000), null);
-  assert.equal(thoughtBubbleFrame(many, 23000), null);
-  assert.equal(thoughtBubbleFrame({ ...many, activeDefectId: null }, 6000), null);
-  assert.equal(thoughtBubbleFrame({ ...many, activeDefectId: "unknown" }, 6000), null);
   assert.equal(thoughtBubbleFrame(car, 5100, true).scale, 1);
 });
 
@@ -65,7 +62,7 @@ test("race snapshots carry the fault variants and finish state to the world bubb
   const [sceneCar] = raceCarsFromRoom({ players: [{ id: "one", car: publicCar }] });
   assert.equal(sceneCar.oneWayTurn, "right");
   assert.equal(sceneCar.enginePowerIssue, "weak");
-  assert.equal(sceneCar.activeDefectId, "no_brakes");
+  assert.equal(sceneCar.activeDefectId, "no_engine");
   assert.equal(thoughtBubbleFrame(sceneCar, 8000), null);
 });
 
@@ -88,12 +85,12 @@ test("repair and rejoin preserve the shared quad, and late image loads cannot re
     const first = app.root.findByName("Thought bubble / One");
     const mesh = first.render.meshInstances[0].mesh;
     bubbles.sync(states);
-    assert.equal(pendingImages.length, 2);
-    assert.equal(pendingImages[1].src, faultIcon("no_engine").src);
-    state.car = { ...state.car, activeDefectId: "no_grip" };
-    bubbles.sync(states);
     assert.equal(pendingImages.length, 4);
-    assert.equal(pendingImages[3].src, faultIcon("no_grip").src);
+    assert.equal(pendingImages[1].src, faultIcon("no_engine").src);
+    state.car = { ...state.car, defectIds: ["no_grip"] };
+    bubbles.sync(states);
+    assert.equal(pendingImages.length, 6);
+    assert.equal(pendingImages[5].src, faultIcon("no_grip").src);
     state.car = { name: "One", defectIds: [] };
     bubbles.sync(states);
     assert.equal(app.root.findByName("Thought bubble / One"), null);

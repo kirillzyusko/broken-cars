@@ -8,7 +8,7 @@ import { Avatar, Pill } from "../components/primitives.jsx";
 import { StartSignal } from "../components/StartSignal.jsx";
 import { faultIcon } from "../kart-fault-icons.js";
 import { THOUGHT_DELAY_MS } from "../kart-thought-bubble-model.js";
-import { discoverableDefectId } from "../../shared/defect-discovery.js";
+import { discoverableDefectIds } from "../../shared/defect-discovery.js";
 
 const RaceView = lazy(() => import("../RaceView.jsx"));
 
@@ -121,8 +121,8 @@ function FeedHud({ player, position, count, elapsedMs, trackLength }) {
 
 function DriverFault({ player }) {
   const { car } = player;
-  const id = discoverableDefectId(car);
-  if (id === null) {
+  const ids = discoverableDefectIds(car);
+  if (!ids.length) {
     return (
       <span className="tv-feed__faults tv-feed__faults--fixed" role="img" aria-label={`${player.name}: no remaining faults`} title="Fully fixed">
         <svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true">
@@ -132,12 +132,12 @@ function DriverFault({ player }) {
       </span>
     );
   }
-  const icon = faultIcon(id, car);
-  if (!icon) return null;
-  const label = icon.label.join(" ").toLowerCase();
-  return (
-    <span className="tv-feed__faults" title={label}>
-      <img src={icon.src} alt={`${player.name}: ${label}`} width="20" height="20" draggable={false} />
-    </span>
-  );
+  return <span className="tv-feed__faults" aria-label={`${player.name}: remaining faults`}>
+    {ids.map((id) => {
+      const icon = faultIcon(id, car);
+      if (!icon) return null;
+      const label = icon.label.join(" ").toLowerCase();
+      return <img key={id} src={icon.src} alt={label} title={label} width="20" height="20" draggable={false} />;
+    })}
+  </span>;
 }
