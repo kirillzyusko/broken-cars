@@ -206,13 +206,15 @@ function Host({ roomId }) {
   const canStartNextRace = room?.phase === "tuning" && remaining <= 0;
   const isWaiting = room?.phase === "waiting";
   const isBusy = room?.phase === "assigning" || room?.phase === "repairing";
+  const buildSeconds = Math.round((room?.buildDurationMs ?? 60_000) / 1000);
+  const tuningSeconds = Math.round((room?.tuningDurationMs ?? 60_000) / 1000);
 
   const hostAction = (() => {
-    if (isWaiting) return { label: "Start 1-minute car build", disabled: !canStartBuild };
+    if (isWaiting) return { label: `Start ${buildSeconds}s car build`, disabled: !canStartBuild };
     if (room?.phase === "prompting") return { label: "Start ride", disabled: !canStartRace };
     if (room?.phase === "finished") {
       return canStartTuning
-        ? { label: "Start 1-minute tuning", disabled: false }
+        ? { label: `Start ${tuningSeconds}s tuning`, disabled: false }
         : { label: "All cars are fully tuned", disabled: true };
     }
     if (room?.phase === "tuning") {
@@ -439,6 +441,11 @@ function Player({ roomId }) {
     && (me?.car?.defects.length ?? 0) > 0;
   const canDrive = room?.phase === "countdown" || room?.phase === "racing";
   const connectedPlayers = room?.players.filter((player) => player.connected).length ?? 0;
+  const buildSeconds = Math.round((room?.buildDurationMs ?? 60_000) / 1000);
+
+  useEffect(() => {
+    setTuningPrompt("");
+  }, [room?.roundNumber]);
 
   const updateControl = useCallback((control, pressed) => {
     const next = { ...controlsRef.current, [control]: pressed };
@@ -526,7 +533,7 @@ function Player({ roomId }) {
               ? "You’re the first driver. The host will start when everyone is here."
               : `${connectedPlayers} drivers are in the room. The host will start when everyone is here.`}
           </p>
-          <small>Everyone gets the same 60 seconds to build a car.</small>
+          <small>Everyone gets the same {buildSeconds} seconds to build a car.</small>
         </section>
       ) : null}
 

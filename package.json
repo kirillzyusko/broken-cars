@@ -4,10 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node server/index.js",
+    "dev": "node --env-file-if-exists=.env server/index.js",
+    "dev:fast": "BUILD_DURATION_MS=15000 TUNING_DURATION_MS=15000 START_COUNTDOWN_MS=1000 MAX_RACE_DURATION_MS=10000 node --env-file-if-exists=.env server/index.js",
     "build": "vite build",
-    "start": "NODE_ENV=production node server/index.js",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.js",
     "test": "node --test",
+    "test:openai": "node --env-file-if-exists=.env scripts/openai-smoke.js",
     "check": "npm run test && npm run build"
   },
   "dependencies": {

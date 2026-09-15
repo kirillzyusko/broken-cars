@@ -11,10 +11,12 @@ npm run dev
 
 Open `http://localhost:3001` on the host computer. For the demo, connect the host and every phone to the `STARLINK` Wi-Fi access point. The host screen displays that network name, and the QR code automatically uses the first LAN IPv4 address. If the QR code chooses the wrong network adapter, set `PUBLIC_URL` before starting the server.
 
-The default defect selector is local, random, and needs no account or internet access. To let OpenAI interpret each player's must-have details and assign varied, compatible defects, start with:
+The default defect selector is local, random, and needs no account or internet access. To let OpenAI interpret each player's must-have details and assign varied, compatible defects, create a gitignored `.env` file:
 
-```bash
-LLM_PROVIDER=openai OPENAI_API_KEY=your_key npm run dev
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_key
+OPENAI_MODEL=gpt-5-nano
 ```
 
 The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed. Car prompts are sent to OpenAI only when `LLM_PROVIDER=openai` is enabled. Explicit requirements are treated as hard constraints, so a player asking for round wheels cannot receive square or missing wheels. The server also minimizes repeated defects across players in the same room. If the API fails, the build stays open and the host sees an error instead of silently assigning potentially conflicting defects.
@@ -48,7 +50,9 @@ const state = game.getState(room, { viewerPlayerId: playerId });
 
 ```bash
 npm run dev      # development server (restart after server edits)
+npm run dev:fast # 15s build/tuning windows and a 10s race for manual testing
 npm test         # core game-engine tests
+npm run test:openai # two live API smoke calls; requires .env
 npm run build    # production client bundle
 npm start        # serve the built client
 npm run check    # tests and production build

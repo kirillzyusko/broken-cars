@@ -541,6 +541,8 @@ export class GameEngine {
       startsAt: room.startsAt,
       raceEndsAt: room.raceEndsAt,
       trackLength: TRACK_LENGTH_METERS,
+      buildDurationMs: this.buildDurationMs,
+      tuningDurationMs: this.tuningDurationMs,
       selectorName,
       roundNumber: room.roundNumber,
       finishers: [...room.finishers],

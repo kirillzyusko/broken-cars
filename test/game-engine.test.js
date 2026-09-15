@@ -181,7 +181,10 @@ test("local selector always returns allowed compatible defects", async () => {
 test("room snapshots advertise the current client protocol", () => {
   const engine = new GameEngine();
   const room = engine.createRoom();
-  assert.equal(engine.serialize(room).protocolVersion, 3);
+  const state = engine.serialize(room);
+  assert.equal(state.protocolVersion, 3);
+  assert.equal(state.buildDurationMs, 60_000);
+  assert.equal(state.tuningDurationMs, 60_000);
 });
 
 test("room snapshots keep car prompts private from the host and other players", async () => {
