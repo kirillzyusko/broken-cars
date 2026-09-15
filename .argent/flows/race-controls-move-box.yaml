@@ -1,0 +1,8 @@
+steps:
+  - echo: Hold GAS to verify that the race car gains speed and moves down the road.
+  - long-press: { on: { x: 0.744, y: 0.8385 }, duration: 1400 }
+  - echo: After gaining speed, hold LEFT and RIGHT to verify lane steering.
+  - long-press: { on: { x: 0.257, y: 0.7295 }, duration: 650 }
+  - long-press: { on: { x: 0.744, y: 0.7295 }, duration: 1100 }
+executionPrerequisite: Safari is open on an active Broken Cars player race with
+  the PlayCanvas track and car controls visible.

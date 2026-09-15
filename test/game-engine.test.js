@@ -64,16 +64,20 @@ test("host cannot start early and invalid host credentials are rejected", async 
   );
 });
 
-test("race assignment and server-authoritative controls move a working car", async () => {
+test("standard racing skips defects and server-authoritative controls move the car", async () => {
   const engine = new GameEngine({ buildDurationMs: 1 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
   engine.submitPrompt(room.id, "player-1", "Fast banana", 1_000);
+  let selectorCalled = false;
   await engine.startRoom(
     room.id,
     room.hostToken,
-    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "loose_wheel"] }),
+    async () => {
+      selectorCalled = true;
+      return { "player-1": ["no_engine", "no_brakes", "no_steering"] };
+    },
     1_002,
   );
 
@@ -85,13 +89,79 @@ test("race assignment and server-authoritative controls move a working car", asy
   for (let now = 2_050; now <= 5_000; now += 50) engine.tick(now);
 
   const car = room.players.get("player-1").car;
+  assert.equal(selectorCalled, false);
+  assert.deepEqual(car.defectIds, []);
   assert.ok(car.speed > 0);
   assert.ok(car.distance > 0);
   assert.ok(car.distance < TRACK_LENGTH_METERS);
 });
 
-test("a car with no engine cannot accelerate", async () => {
+test("two players see synchronized acceleration and opposite steering movement", async () => {
   const engine = new GameEngine({ buildDurationMs: 1 });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-left", 1_000);
+  engine.joinPlayer(room.id, "player-right", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-left", "Left box", 1_000);
+  engine.submitPrompt(room.id, "player-right", "Right box", 1_000);
+  await engine.startRoom(
+    room.id,
+    room.hostToken,
+    async () => ({
+      "player-left": ["no_brakes", "no_seatbelt", "no_cooling"],
+      "player-right": ["no_brakes", "no_seatbelt", "no_cooling"],
+    }),
+    1_002,
+  );
+
+  room.startsAt = 2_000;
+  room.lastTickAt = 2_000;
+  room.raceEndsAt = 100_000;
+  engine.tick(2_000);
+  engine.setControls(room.id, "player-left", { accelerate: true, left: true });
+  engine.setControls(room.id, "player-right", { accelerate: true, right: true });
+  for (let now = 2_050; now <= 2_500; now += 50) engine.tick(now);
+
+  const hostCars = engine.serialize(room).players.map(({ id, car }) => ({
+    id,
+    distance: car.distance,
+    lane: car.lane,
+  }));
+  const playerCars = engine.serialize(room, 2_500, "Local randomizer", "player-left")
+    .players.map(({ id, car }) => ({ id, distance: car.distance, lane: car.lane }));
+
+  assert.ok(hostCars.every((player) => player.distance > 0));
+  assert.ok(hostCars.find((player) => player.id === "player-left").lane < 0);
+  assert.ok(hostCars.find((player) => player.id === "player-right").lane > 0);
+  assert.deepEqual(playerCars, hostCars);
+  assert.equal(engine.serialize(room).defectsEnabled, false);
+});
+
+test("the host can restart a completed standard race with the same cars", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, startCountdownMs: 5 });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-1", "Reusable box", 1_000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+
+  const car = room.players.get("player-1").car;
+  car.distance = 400;
+  car.speed = 30;
+  car.lane = 0.8;
+  room.phase = "finished";
+  engine.restartRace(room.id, room.hostToken, 2_000);
+
+  assert.equal(room.phase, "countdown");
+  assert.equal(room.roundNumber, 2);
+  assert.equal(room.startsAt, 2_005);
+  assert.equal(car.distance, 0);
+  assert.equal(car.speed, 0);
+  assert.equal(car.lane, 0);
+});
+
+test("a car with no engine cannot accelerate when broken-parts mode is enabled", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -113,7 +183,7 @@ test("a car with no engine cannot accelerate", async () => {
 });
 
 test("swapped pedals, reversed steering, stuck acceleration, and backwards engines affect driving", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1 });
+  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true });
   const room = engine.createRoom(1_000);
   const defectIds = [
     "swapped_pedals",
@@ -183,6 +253,7 @@ test("room snapshots advertise the current client protocol", () => {
   const room = engine.createRoom();
   const state = engine.serialize(room);
   assert.equal(state.protocolVersion, 3);
+  assert.equal(state.defectsEnabled, false);
   assert.equal(state.buildDurationMs, 60_000);
   assert.equal(state.tuningDurationMs, 60_000);
 });
@@ -225,6 +296,7 @@ test("each tuning round repairs at most one specifically reported defect", async
     tuningDurationMs: 10,
     startCountdownMs: 5,
     maxRaceDurationMs: 100,
+    defectsEnabled: true,
   });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
@@ -266,7 +338,11 @@ test("each tuning round repairs at most one specifically reported defect", async
 });
 
 test("generic requests cannot repair defects even if a selector suggests one", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 10 });
+  const engine = new GameEngine({
+    buildDurationMs: 1,
+    tuningDurationMs: 10,
+    defectsEnabled: true,
+  });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);
@@ -303,7 +379,11 @@ test("generic requests cannot repair defects even if a selector suggests one", a
 });
 
 test("host snapshots never reveal private tuning prompts", async () => {
-  const engine = new GameEngine({ buildDurationMs: 1, tuningDurationMs: 10 });
+  const engine = new GameEngine({
+    buildDurationMs: 1,
+    tuningDurationMs: 10,
+    defectsEnabled: true,
+  });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_000);
   engine.startPrompting(room.id, room.hostToken, 1_000);

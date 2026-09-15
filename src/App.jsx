@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useGameSocket } from "./use-game-socket.js";
 import { createPlayerId } from "./player-identity.js";
+
+const RaceScene = lazy(() => import("./RaceScene.jsx"));
 
 const EMPTY_CONTROLS = {
   accelerate: false,
@@ -178,6 +188,19 @@ function DefectList({ car }) {
   );
 }
 
+function RaceSceneLoading() {
+  return (
+    <section className="panel race-world race-world--loading">
+      <div className="spinner" />
+      <p>Loading the 3D track…</p>
+    </section>
+  );
+}
+
+function shouldShowRaceWorld(phase) {
+  return phase === "countdown" || phase === "racing" || phase === "finished";
+}
+
 function Host({ roomId }) {
   const hostToken = sessionStorage.getItem(`broken-cars:host:${roomId}`) ?? "";
   const storedJoinUrl = sessionStorage.getItem(`broken-cars:join:${roomId}`);
@@ -199,9 +222,10 @@ function Host({ roomId }) {
   const readyPlayers = room?.players.filter((player) => player.hasPrompt).length ?? 0;
   const tuningPlayers = room?.players.filter((player) => player.hasTuningPrompt).length ?? 0;
   const connectedCount = room?.players.filter((player) => player.connected).length ?? 0;
+  const standardRacing = room?.defectsEnabled === false;
   const canStartBuild = room?.phase === "waiting" && connectedCount > 0;
   const canStartRace = room?.phase === "prompting" && remaining <= 0 && readyPlayers > 0;
-  const canStartTuning = room?.phase === "finished"
+  const canStartTuning = !standardRacing && room?.phase === "finished"
     && room.players.some((player) => player.car?.defects.length > 0);
   const canStartNextRace = room?.phase === "tuning" && remaining <= 0;
   const isWaiting = room?.phase === "waiting";
@@ -213,6 +237,7 @@ function Host({ roomId }) {
     if (isWaiting) return { label: `Start ${buildSeconds}s car build`, disabled: !canStartBuild };
     if (room?.phase === "prompting") return { label: "Start ride", disabled: !canStartRace };
     if (room?.phase === "finished") {
+      if (standardRacing) return { label: "Race again", disabled: false };
       return canStartTuning
         ? { label: `Start ${tuningSeconds}s tuning`, disabled: false }
         : { label: "All cars are fully tuned", disabled: true };
@@ -232,6 +257,7 @@ function Host({ roomId }) {
   function triggerHostAction() {
     if (isWaiting) actions.startBuild();
     else if (room?.phase === "prompting") actions.startRace();
+    else if (room?.phase === "finished" && standardRacing) actions.restartRace();
     else if (room?.phase === "finished") actions.startTuning();
     else if (room?.phase === "tuning") actions.startNextRace();
   }
@@ -313,7 +339,9 @@ function Host({ roomId }) {
                       : room?.phase === "tuning"
                         ? "Tuning time is over. Apply at most one repair per car."
                         : room?.phase === "finished"
-                          ? "The ride is over. Start a tuning round when everyone is ready."
+                          ? standardRacing
+                            ? "The race is over. Start a rematch when everyone is ready."
+                            : "The ride is over. Start a tuning round when everyone is ready."
                           : "The garage is locked."}
           </p>
           <button
@@ -324,9 +352,19 @@ function Host({ roomId }) {
           >
             {hostAction.label}
           </button>
-          <small>Defect selector: {room?.selectorName ?? "—"}</small>
+          <small>
+            {standardRacing
+              ? "Driving mode: standard physics"
+              : `Defect selector: ${room?.selectorName ?? "—"}`}
+          </small>
         </section>
       </div>
+
+      {shouldShowRaceWorld(room?.phase) ? (
+        <Suspense fallback={<RaceSceneLoading />}>
+          <RaceScene room={room} view="spectator" />
+        </Suspense>
+      ) : null}
 
       <section className="panel players-panel">
         <div className="section-heading">
@@ -364,7 +402,7 @@ function Host({ roomId }) {
                       ? "Building a car…"
                       : "No car submitted"}
               </p>
-              <DefectList car={player.car} />
+              {!standardRacing ? <DefectList car={player.car} /> : null}
             </article>
           ))}
           {room?.players.length === 0 ? <p className="empty-state">No drivers yet. Point a phone at the QR code.</p> : null}
@@ -389,7 +427,7 @@ function getPlayerId(roomId) {
   return playerId;
 }
 
-function ControllerButton({ control, active, onControl, children, className = "" }) {
+function ControllerButton({ control, label, active, onControl, children, className = "" }) {
   function press(event) {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -403,6 +441,8 @@ function ControllerButton({ control, active, onControl, children, className = ""
 
   return (
     <button
+      id={`control-${control}`}
+      aria-label={label}
       className={`control-button ${active ? "control-button--active" : ""} ${className}`}
       type="button"
       onPointerDown={press}
@@ -440,6 +480,7 @@ function Player({ roomId }) {
     && tuningRemaining > 0
     && (me?.car?.defects.length ?? 0) > 0;
   const canDrive = room?.phase === "countdown" || room?.phase === "racing";
+  const standardRacing = room?.defectsEnabled === false;
   const connectedPlayers = room?.players.filter((player) => player.connected).length ?? 0;
   const buildSeconds = Math.round((room?.buildDurationMs ?? 60_000) / 1000);
 
@@ -543,8 +584,9 @@ function Player({ roomId }) {
           <p className="eyebrow">Build your dream car</p>
           <h2>What do you want to drive?</h2>
           <p className="prompt-guidance">
-            Include must-have details and say what must not be broken. For example:
-            “A red rally car with round wheels — keep the wheels round.”
+            {standardRacing
+              ? "Give your box car a name and describe its look. Every car gets the same working engine, brakes and steering."
+              : "Include must-have details and say what must not be broken. For example: “A red rally car with round wheels — keep the wheels round.”"}
           </p>
           <form onSubmit={submitPrompt}>
             <textarea
@@ -578,6 +620,12 @@ function Player({ roomId }) {
           <h2>The mechanic is checking reports</h2>
           <p>Each car can receive at most one concrete repair.</p>
         </section>
+      ) : null}
+
+      {shouldShowRaceWorld(room?.phase) && me?.car ? (
+        <Suspense fallback={<RaceSceneLoading />}>
+          <RaceScene room={room} currentPlayerId={playerId} view="driver" />
+        </Suspense>
       ) : null}
 
       {room?.phase === "tuning" ? (
@@ -626,7 +674,11 @@ function Player({ roomId }) {
               No repair applied — report one specific defect next round.
             </p>
           ) : null}
-          <DefectList car={me.car} />
+          {standardRacing ? (
+            <p className="fully-tuned">✓ Standard engine, brakes and steering</p>
+          ) : (
+            <DefectList car={me.car} />
+          )}
           {me.car.heat > 0 ? (
             <div className="heat-meter">
               <span>Engine heat</span>
@@ -643,21 +695,27 @@ function Player({ roomId }) {
       {canDrive ? (
         <section className="controller" aria-label="Car controls">
           <div className="steering-controls">
-            <ControllerButton control="left" active={controls.left} onControl={updateControl}>←</ControllerButton>
-            <ControllerButton control="right" active={controls.right} onControl={updateControl}>→</ControllerButton>
+            <ControllerButton control="left" label="Steer left" active={controls.left} onControl={updateControl}>←</ControllerButton>
+            <ControllerButton control="right" label="Steer right" active={controls.right} onControl={updateControl}>→</ControllerButton>
           </div>
           <div className="pedal-controls">
-            <ControllerButton control="brake" active={controls.brake} onControl={updateControl} className="brake-button">
+            <ControllerButton control="brake" label="Brake" active={controls.brake} onControl={updateControl} className="brake-button">
               <span>Brake</span><strong>■</strong>
             </ControllerButton>
-            <ControllerButton control="accelerate" active={controls.accelerate} onControl={updateControl} className="gas-button">
+            <ControllerButton control="accelerate" label="Accelerate" active={controls.accelerate} onControl={updateControl} className="gas-button">
               <span>Gas</span><strong>▲</strong>
             </ControllerButton>
           </div>
         </section>
       ) : null}
 
-      {room?.phase === "finished" && me?.car?.defects.length > 0 ? (
+      {room?.phase === "finished" && standardRacing ? (
+        <section className="panel status-panel round-finished-panel">
+          <p className="eyebrow">Race {room.roundNumber} complete</p>
+          <h2>Ready for another lap?</h2>
+          <p>The host can start a rematch with the same cars.</p>
+        </section>
+      ) : room?.phase === "finished" && me?.car?.defects.length > 0 ? (
         <section className="panel status-panel round-finished-panel">
           <p className="eyebrow">Ride {room.roundNumber} complete</p>
           <h2>Remember one problem</h2>

@@ -234,11 +234,13 @@ export class GameEngine {
     tuningDurationMs = TUNING_DURATION_MS,
     startCountdownMs = START_COUNTDOWN_MS,
     maxRaceDurationMs = MAX_RACE_DURATION_MS,
+    defectsEnabled = false,
   } = {}) {
     this.buildDurationMs = buildDurationMs;
     this.tuningDurationMs = tuningDurationMs;
     this.startCountdownMs = startCountdownMs;
     this.maxRaceDurationMs = maxRaceDurationMs;
+    this.defectsEnabled = defectsEnabled;
     this.rooms = new Map();
   }
 
@@ -357,18 +359,23 @@ export class GameEngine {
     const racers = [...room.players.values()].filter((player) => player.prompt);
     if (racers.length === 0) throw new Error("At least one driver must submit a car.");
 
-    room.phase = "assigning";
-    let assignments;
-    try {
-      assignments = await selector(racers);
-    } catch (error) {
-      room.phase = "prompting";
-      throw error;
+    let assignments = {};
+    if (this.defectsEnabled) {
+      room.phase = "assigning";
+      try {
+        assignments = await selector(racers);
+      } catch (error) {
+        room.phase = "prompting";
+        throw error;
+      }
     }
 
     racers.forEach((player, index) => {
-      const defectIds = assignments[player.id];
-      if (!Array.isArray(defectIds) || defectIds.length < 3 || defectIds.length > 4) {
+      const defectIds = this.defectsEnabled ? assignments[player.id] : [];
+      if (
+        this.defectsEnabled
+        && (!Array.isArray(defectIds) || defectIds.length < 3 || defectIds.length > 4)
+      ) {
         throw new Error(`Exactly three or four broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
@@ -378,6 +385,28 @@ export class GameEngine {
     });
 
     room.roundNumber = 1;
+    room.finishers = [];
+    room.startsAt = now + this.startCountdownMs;
+    room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
+    room.lastTickAt = room.startsAt;
+    room.phase = "countdown";
+    return room;
+  }
+
+  restartRace(roomId, hostToken, now = Date.now()) {
+    const room = this.requireRoom(roomId);
+    this.assertHost(room, hostToken);
+    if (room.phase !== "finished") throw new Error("Finish the current race first.");
+
+    const racers = [...room.players.values()].filter((player) => player.car);
+    if (racers.length === 0) throw new Error("At least one car is required to race.");
+    for (const player of racers) {
+      player.controls = { ...EMPTY_CONTROLS };
+      player.lastRepairId = null;
+      resetCarForRace(player.car);
+    }
+
+    room.roundNumber += 1;
     room.finishers = [];
     room.startsAt = now + this.startCountdownMs;
     room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
@@ -543,6 +572,7 @@ export class GameEngine {
       trackLength: TRACK_LENGTH_METERS,
       buildDurationMs: this.buildDurationMs,
       tuningDurationMs: this.tuningDurationMs,
+      defectsEnabled: this.defectsEnabled,
       selectorName,
       roundNumber: room.roundNumber,
       finishers: [...room.finishers],

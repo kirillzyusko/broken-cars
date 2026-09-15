@@ -173,6 +173,96 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   pointer-events: none;
 }
 
+.race-world {
+  overflow: hidden;
+  margin-top: 1rem;
+}
+.race-world__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+}
+.race-world__heading > span {
+  color: var(--muted);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+.race-world__viewport {
+  position: relative;
+  min-height: 260px;
+  aspect-ratio: 16 / 8;
+  background: #6da8d3;
+}
+.race-world__viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.race-world__status {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  padding: 0.42rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(13, 18, 15, 0.72);
+  color: var(--acid);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.race-world__error {
+  position: absolute;
+  inset: 1rem;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 1rem;
+  border-radius: 10px;
+  background: rgba(50, 29, 24, 0.94);
+  color: #ffb3a1;
+  text-align: center;
+}
+.race-world__roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+}
+.race-world__driver {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.72rem 0.9rem;
+  background: #171714;
+  font-size: 0.75rem;
+}
+.race-world__driver i {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  box-shadow: 0 0 10px currentColor;
+}
+.race-world__driver strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.race-world__driver span { color: var(--muted); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+.race-world__driver--current { background: #25281b; }
+.race-world--loading {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  color: var(--muted);
+}
+.race-world--loading .spinner { margin: 0; }
+.race-world--loading p { margin: 0; }
+
 .prompt-panel { position: relative; overflow: hidden; padding-top: 2rem; }
 .prompt-panel h2 { max-width: 75%; }
 .prompt-guidance { max-width: 34rem; margin: 0.75rem 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
@@ -272,6 +362,7 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   .qr-wrap svg { width: 140px; height: 140px; }
   .controller { grid-template-columns: 1fr; }
   .topbar { align-items: center; }
+  .race-world__viewport { min-height: 235px; aspect-ratio: 4 / 3; }
 }
 
 @media (max-width: 480px) {
@@ -279,6 +370,10 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
   .compact-topbar { align-items: flex-start; }
   .phase-row { padding: 0.45rem 0.6rem; font-size: 0.62rem; }
   .controller-shell { padding-top: 1rem; }
+  .race-world__heading { align-items: flex-start; padding: 0.9rem 1rem; }
+  .race-world__heading > span { max-width: 8rem; text-align: right; }
+  .race-world__driver { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .race-world__driver span:last-child { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

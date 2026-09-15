@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared one-minute car-building round once everyone has joined. Every submitted car receives three or four broken parts before the first race. After each ride, players get one minute to report one concrete problem and repair at most that one defect before racing again.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders a simple road and synchronized box cars; every player gets the same working acceleration, brakes, and steering. After a finish, the host can start a rematch with the same cars.
 
 ## Run locally
 
@@ -11,12 +11,13 @@ npm run dev
 
 Open `http://localhost:3001` on the host computer. For the demo, connect the host and every phone to the `STARLINK` Wi-Fi access point. The host screen displays that network name, and the QR code automatically uses the first LAN IPv4 address. If the QR code chooses the wrong network adapter, set `PUBLIC_URL` before starting the server.
 
-The default defect selector is local, random, and needs no account or internet access. To let OpenAI interpret each player's must-have details and assign varied, compatible defects, create a gitignored `.env` file:
+Broken-parts mode is currently disabled by default so the basic race can be tested without simulated failures. To restore that experimental mode, set `ENABLE_BROKEN_PARTS=true`. Its default defect selector is local and needs no account or internet access. To let OpenAI interpret player requests in that mode, create a gitignored `.env` file:
 
 ```dotenv
 LLM_PROVIDER=openai
 OPENAI_API_KEY=your_key
 OPENAI_MODEL=gpt-5-nano
+ENABLE_BROKEN_PARTS=true
 ```
 
 The default API model is `gpt-5-nano`; override it with `OPENAI_MODEL` if needed. Car prompts are sent to OpenAI only when `LLM_PROVIDER=openai` is enabled. Explicit requirements are treated as hard constraints, so a player asking for round wheels cannot receive square or missing wheels. The server also minimizes repeated defects across players in the same room. If the API fails, the build stays open and the host sees an error instead of silently assigning potentially conflicting defects.
@@ -25,7 +26,8 @@ Tuning reports use the same selector. A concrete symptom such as `it slides like
 
 ## Architecture
 
-- React + Vite for the host screen and individual phone controller.
+- React + Vite for the host screen and individual phone controller. PlayCanvas renders
+  a lightweight 3D road and synchronized box cars once a race starts.
 - Express serves rooms and the web client from one LAN-accessible port.
 - WebSockets carry room state, prompt submissions, and live control intent.
 - `server/game.js` exports one framework-independent `BrokenCarsGame` object. It owns the complete public integration surface: rooms, prompts, races, tuning, repairs, controls, ticks, and privacy-filtered snapshots.

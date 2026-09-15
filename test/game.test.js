@@ -8,6 +8,7 @@ test("BrokenCarsGame exposes the complete multi-round integration surface", asyn
     tuningDurationMs: 10,
     startCountdownMs: 5,
     maxRaceDurationMs: 100,
+    defectsEnabled: true,
     selectorName: () => "Test mechanic",
     defectSelector: async () => ({
       player: ["no_brakes", "reversed_steering", "no_grip"],
