@@ -66,6 +66,8 @@ npm run check    # tests and production build
 
 The [kart driving test](http://localhost:3001/map/drive) uses the same free driving code as multiplayer, with world positions and a chase camera that follows the kart's heading. WASD or arrow keys drive; hold S/down to brake, then reverse; Space only brakes; R resets the sandbox. Acceleration is quick, steering tightens at low speed, and releasing steering holds the chosen direction. There is no drift or jump input, and the kart keeps its existing Idle animation.
 
+The chase camera in `src/kart-camera.js` follows the kart's position directly and eases its rotation through turns. It keeps the kart below screen centre, adds a small speed-based change in distance and field of view, and checks the centre and edges of the camera against scenery. Resets and camera switches snap to the new car. Framing is based on [Nintendo's Mario Kart 8 Deluxe cornering footage](https://www.nintendo.com/jp/ichikara/aabpa/02_en.html); camera distances and timing are tuned for this game's kart.
+
 See [driving feel](docs/driving-feel.md) for the Mario Kart research, handling choices, and measured changes to steering and acceleration.
 
 Both modes run `shared/kart-driving.js` at 120 steps per second and use the exported map collision mesh through `shared/driving-world.js`. Grass reduces speed; leaving supported ground returns the kart to its last checkpoint. Multiplayer also resolves car and race-barrier collisions. Ordered checkpoint crossings measure the 500 m lap without constraining movement. Room protocol 5 sends `worldPosition` in metres and a clockwise `heading` in degrees; forward at zero heading is negative Z. Restart the Node server after changing shared driving code.

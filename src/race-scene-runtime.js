@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { updateKartCamera } from "./kart-camera.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
 import { createRaceWater } from "./race-water.js";
@@ -172,17 +173,39 @@ function updateCamera(scene, dt) {
     scene.camera.setPosition(routeCenter.x + 74 * fit, 114 * fit, routeCenter.z + 88 * fit);
     scene.camera.lookAt(routeCenter.x, 0, routeCenter.z);
     scene.cameraPlaced = false;
+    scene.chaseCamera = null;
+    scene.camera.camera.fov = 62;
     return;
   }
   const pose = followed.pose;
+  const followKey = `${scene.view}:${followed.car.id}`;
+  if (scene.cameraFollowKey !== followKey) scene.cameraPlaced = false;
+  scene.cameraFollowKey = followKey;
+  if (scene.view === "driver") {
+    scene.chaseCamera = updateKartCamera(scene.chaseCamera, pose, followed.car.speed, dt, {
+      reset: !scene.cameraPlaced,
+      raycast: (start, end) => scene.app.systems.rigidbody.raycastFirst(
+        new pc.Vec3(start.x, start.y, start.z), new pc.Vec3(end.x, end.y, end.z),
+        { filterCollisionMask: pc.BODYGROUP_STATIC },
+      ),
+    });
+    const { position, target, fov } = scene.chaseCamera;
+    scene.camera.setPosition(position.x, position.y, position.z);
+    scene.camera.lookAt(target.x, target.y, target.z);
+    scene.camera.camera.fov = fov;
+    scene.cameraPlaced = true;
+    return;
+  }
+  scene.chaseCamera = null;
+  scene.camera.camera.fov = 62;
   const cockpit = scene.view === "cockpit";
   const spectator = scene.view === "spectator";
   const back = cockpit ? -0.5 : spectator ? 20 : 6.5;
   const height = cockpit ? 1.25 : spectator ? 24 : 3.5;
-  const target = new pc.Vec3(pose.x + pose.forward.x * 8, 1, pose.z + pose.forward.z * 8);
-  const desired = new pc.Vec3(pose.x - pose.forward.x * back, height, pose.z - pose.forward.z * back);
+  const target = new pc.Vec3(pose.x + pose.forward.x * 4, pose.y + 0.7, pose.z + pose.forward.z * 4);
+  const desired = new pc.Vec3(pose.x - pose.forward.x * back, pose.y + height, pose.z - pose.forward.z * back);
   if (!cockpit) {
-    const origin = new pc.Vec3(pose.x, 1.6, pose.z);
+    const origin = new pc.Vec3(pose.x, pose.y + 1.4, pose.z);
     const hit = scene.app.systems.rigidbody.raycastFirst(origin, desired, { filterCollisionMask: pc.BODYGROUP_STATIC });
     if (hit) desired.lerp(origin, desired, Math.max(0, hit.hitFraction - 0.06));
   }
