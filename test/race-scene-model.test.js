@@ -33,7 +33,7 @@ test("steering stays within road width through the corners", () => {
     const center = sampleTrack(distance * ROAD_WORLD_LENGTH / 500);
     for (const lane of [-1, 0, 1]) {
       const p = carWorldTransform({ distance, lane }, 0, 2);
-      assert.ok(Math.hypot(p.x - center.x, p.z - center.z) <= ROAD_HALF_WIDTH - 0.79);
+      assert.ok(Math.hypot(p.x - center.x, p.z - center.z) <= ROAD_HALF_WIDTH - CAR_SIZE_WORLD.x / 2 - 0.175 + 1e-9);
     }
   }
 });
@@ -45,6 +45,19 @@ test("multiple synchronized cars occupy distinct grid columns", () => {
   assert.notEqual(cars[0].position.x, cars[1].position.x);
   assert.equal(cars[1].isCurrent, true);
   assert.equal(cars[0].distance, cars[1].distance);
+});
+
+test("visual defect IDs follow the latest server repair snapshot", () => {
+  const car = { distance: 0, speed: 0, defectIds: ["no_engine", "square_wheels"] };
+  const room = { players: [{ id: "one", name: "One", car }] };
+  const before = raceCarsFromRoom(room)[0];
+  assert.deepEqual(before.defectIds, ["no_engine", "square_wheels"]);
+  assert.notEqual(before.defectIds, car.defectIds);
+  car.defectIds = [];
+  assert.deepEqual(raceCarsFromRoom(room)[0].defectIds, []);
+  delete car.defectIds;
+  car.defects = [{ id: "no_steering" }];
+  assert.deepEqual(raceCarsFromRoom(room)[0].defectIds, ["no_steering"]);
 });
 
 test("frame interpolation is stable across different update rates", () => {

@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { createKartVisual, loadKartAssets } from "./kart-visual.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
 import { createRaceWater } from "./race-water.js";
@@ -26,7 +27,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   app.start();
   const scene = {
     app, camera, cameraFrame, view, currentPlayerId, carStates: new Map(), obstacleStates: new Map(), materials: [],
-    map: null, skybox: null, water: null, cameraPlaced: false,
+    map: null, skybox: null, water: null, kartAssets: null, cameraPlaced: false,
     destroy() {
       cameraFrame.destroy();
       app.scene.skybox = null;
@@ -43,6 +44,9 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     scene.map = await loadCorsicaMap(app, isCancelled);
     if (isCancelled()) { scene.destroy(); return null; }
     scene.water = createRaceWater(app, scene.map.visual, scene.skybox);
+    onStatus("Loading karts…");
+    scene.kartAssets = await loadKartAssets(app, isCancelled);
+    if (isCancelled()) { scene.destroy(); return null; }
     app.on("update", (dt) => updateScene(scene, Math.min(dt, 0.1)));
     updateScene(scene, 0);
     onStatus("");
@@ -61,34 +65,21 @@ export function syncCars(scene, cars) {
   for (const car of cars) {
     let state = scene.carStates.get(car.id);
     if (!state) {
-      const material = createMaterial(scene, car.color);
-      const wheelMaterial = createMaterial(scene, "#101216");
+      const visual = createKartVisual(scene.kartAssets);
       const entity = new pc.Entity(`Front axle / ${car.name}`);
       const axle = frontAxleWorldPosition(car.position, car.position.yaw);
       entity.setPosition(axle.x, axle.y, axle.z);
       entity.setEulerAngles(0, car.position.yaw, 0);
       scene.app.root.addChild(entity);
-      childBox(entity, `Body / ${car.name}`, material,
-        { x: 0, y: 0, z: CAR_FRONT_AXLE_OFFSET_WORLD }, CAR_SIZE_WORLD);
-      const frontWheelPivots = [];
-      for (const side of [-1, 1]) {
-        const pivot = new pc.Entity(`Front wheel pivot / ${car.name}`);
-        pivot.setLocalPosition(side * (CAR_SIZE_WORLD.x / 2 + 0.07), -CAR_SIZE_WORLD.y * 0.36, 0);
-        entity.addChild(pivot);
-        childBox(pivot, "Front wheel", wheelMaterial, { x: 0, y: 0, z: 0 }, { x: 0.16, y: 0.24, z: 0.34 });
-        frontWheelPivots.push(pivot);
-        childBox(entity, "Rear wheel", wheelMaterial,
-          { x: side * (CAR_SIZE_WORLD.x / 2 + 0.07), y: -CAR_SIZE_WORLD.y * 0.36, z: CAR_SIZE_WORLD.z * 0.72 },
-          { x: 0.16, y: 0.24, z: 0.34 });
-      }
+      entity.addChild(visual.entity);
       // Match the body center despite the visual root being at the front axle.
       entity.addComponent("collision", {
         type: "box", halfExtents: new pc.Vec3(CAR_SIZE_WORLD.x / 2, CAR_SIZE_WORLD.y / 2, CAR_SIZE_WORLD.z / 2),
         linearOffset: new pc.Vec3(0, 0, CAR_FRONT_AXLE_OFFSET_WORLD),
       });
       entity.addComponent("rigidbody", { type: "kinematic" });
-      state = { entity, frontWheelPivots, distance: car.distance, lane: car.lane,
-        heading: car.heading, steeringAngle: car.steeringAngle, car };
+      state = { entity, visual, distance: car.distance, lane: car.lane,
+        heading: car.heading, car };
       scene.carStates.set(car.id, state);
     }
     // A rematch or preview seek must not interpolate backwards around the circuit.
@@ -96,10 +87,10 @@ export function syncCars(scene, cars) {
       state.distance = car.distance;
       state.lane = car.lane;
       state.heading = car.heading;
-      state.steeringAngle = car.steeringAngle;
       scene.cameraPlaced = false;
     }
     state.car = car;
+    state.visual.applyDefects(car.defectIds);
   }
 }
 
@@ -150,14 +141,12 @@ function updateScene(scene, dt) {
     state.distance = pc.math.lerp(state.distance, state.car.distance, blend);
     state.lane = pc.math.lerp(state.lane, state.car.lane, blend);
     state.heading = pc.math.lerp(state.heading, state.car.heading, blend);
-    state.steeringAngle = pc.math.lerp(state.steeringAngle, state.car.steeringAngle, blend);
     // Interpolate progress before sampling the curve, avoiding shortcuts across chicanes.
     const pose = carWorldTransform(state, state.car.index, state.car.carCount);
     state.pose = pose;
     const axle = frontAxleWorldPosition(pose, pose.yaw);
     state.entity.setPosition(axle.x, axle.y, axle.z);
     state.entity.setEulerAngles(0, pose.yaw, 0);
-    for (const wheel of state.frontWheelPivots) wheel.setLocalEulerAngles(0, -state.steeringAngle, 0);
   }
   updateCamera(scene, dt);
 }

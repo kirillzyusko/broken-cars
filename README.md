@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized box cars, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. After a finish, the host can start a rematch with the same cars.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders Corsica GP, synchronized modular karts, and three lane barriers. Cars use responsive arcade acceleration, grip, and steering. Each car has a 1,000 kg mass; impacts transfer momentum, spin cars on off-center hits, and rebound from barriers. After a finish, the host can start a rematch with the same cars.
 
 ## Run locally
 

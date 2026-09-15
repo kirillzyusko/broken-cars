@@ -2,15 +2,18 @@ import { readFile, writeFile } from "node:fs/promises";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, prune } from "@gltf-transform/functions";
+import { measureKart } from "./measure-kart.js";
 
 const directory = new URL("../public/models/kart/", import.meta.url);
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const files = ["kart-round.glb", "kart-square.glb", "wheel-round.glb", "wheel-square.glb"];
 const sizes = {};
+let geometry;
 
 for (const file of files) {
   const path = new URL(file, directory).pathname;
   const document = await io.read(path);
+  if (file === "kart-round.glb") geometry = measureKart(document);
   const names = document.getRoot().listNodes().map((node) => node.getName());
   await document.transform(dedup(), prune({ keepLeaves: true, keepAttributes: true }));
   const after = new Set(document.getRoot().listNodes().map((node) => node.getName()));
@@ -29,6 +32,7 @@ const manifest = {
   squareModel: "kart-square.glb",
   animation: "Idle",
   newAnimations: false,
+  geometry,
   parts: {
     chassis: "Part.Chassis",
     engineAssembly: "Part.EngineAssembly",

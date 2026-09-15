@@ -38,12 +38,14 @@ The GLB uses +Y up and -Z forward. The rig and mounts use meters. All original b
 
 Brake, cooling, seatbelt, pedal, grip, engine-power, steering-control, and loose-wheel defects remain UI and driving behavior. All 16 defect IDs in the current game are covered by `kart.json`.
 
-The game renderer has not been changed to load these files.
+The multiplayer race and `/map/drive` use the same kart loader. It loads the round kart and square tire once per scene, gives each car its own skeleton, and keeps the original texture atlas. Defect updates hide or restore meshes and change fixed mounting angles without restarting `Idle`.
+
+The game keeps the kart 1.4 meters long and uses a uniform scale to fit the painted starting slots. `kart.json` stores bounds measured after skinning and the front-axle position. The shared server and client collision dimensions come from those measurements. Tire contact starts at road height, and the front wheel mounts align with the car's yaw pivot. The collision box stays the same when parts are missing.
 
 ## Rebuild
 
 From `broken-cars`, run Blender with `--background --factory-startup --python scripts/prepare-kart.py`, then run `node scripts/pack-kart.js`.
 
-The Blender script reads the source FBX files and textures from the sibling `art/kart/source` folder. It preserves the input files, checks all 30 frames against the source geometry, and writes the editable Blender file and GLBs. Packing deduplicates shared data while retaining every named node.
+The Blender script reads the source FBX files and textures from the sibling `art/kart/source` folder. It preserves the input files, checks all 30 frames against the source geometry, and writes the editable Blender file and GLBs. Packing deduplicates shared data while retaining every named node, then measures the posed geometry for the shared collision dimensions.
 
 The latest preparation and export comparison reports are beside the Blender file. Both exported kart variants were re-imported and compared at five frames. The largest vertex position difference was below 0.003 mm. No rendered or in-game visual checks were run.

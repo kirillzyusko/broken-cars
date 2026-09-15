@@ -6,6 +6,25 @@
   "squareModel": "kart-square.glb",
   "animation": "Idle",
   "newAnimations": false,
+  "geometry": {
+    "bounds": {
+      "min": [
+        -0.9195119383456929,
+        0.0017216581481088733,
+        -1.2148908829688325
+      ],
+      "max": [
+        0.9195122987098281,
+        0.8180344080369361,
+        1.0174500685828929
+      ]
+    },
+    "frontAxle": [
+      1.9040010967863452e-7,
+      0.2472156734089992,
+      -0.6786039969034057
+    ]
+  },
   "parts": {
     "chassis": "Part.Chassis",
     "engineAssembly": "Part.EngineAssembly",

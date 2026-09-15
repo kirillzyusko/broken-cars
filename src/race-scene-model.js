@@ -73,6 +73,7 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     id: player.id,
     name: player.name,
     color: player.car.color,
+    defectIds: [...(player.car.defectIds ?? player.car.defects?.map((defect) => defect.id) ?? [])],
     distance: player.car.distance,
     lane: player.car.lane ?? 0,
     speed: player.car.speed,

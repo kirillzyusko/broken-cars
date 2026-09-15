@@ -1,4 +1,5 @@
 import track from "../public/maps/corsica-gp/track.json" with { type: "json" };
+import kart from "../public/models/kart/kart.json" with { type: "json" };
 
 export const TRACK_LENGTH_METERS = track.serverRaceDistance;
 export const DISTANCE_TO_WORLD = track.lapLength / TRACK_LENGTH_METERS;
@@ -6,8 +7,15 @@ export const LANE_TO_WORLD = 1.35;
 export const ROAD_HALF_WIDTH = track.roadHalfWidth;
 export const ROAD_WORLD_LENGTH = TRACK_LENGTH_METERS * DISTANCE_TO_WORLD;
 
-export const CAR_SIZE_WORLD = Object.freeze({ x: 1.25, y: 0.7, z: 2.1 });
-export const CAR_FRONT_AXLE_OFFSET_WORLD = CAR_SIZE_WORLD.z * 0.32;
+const { min: kartMin, max: kartMax } = kart.geometry.bounds;
+const CAR_LENGTH_WORLD = 1.4;
+export const KART_SCALE = CAR_LENGTH_WORLD / (kartMax[2] - kartMin[2]);
+export const CAR_SIZE_WORLD = Object.freeze({
+  x: (kartMax[0] - kartMin[0]) * KART_SCALE,
+  y: (kartMax[1] - kartMin[1]) * KART_SCALE,
+  z: CAR_LENGTH_WORLD,
+});
+export const CAR_FRONT_AXLE_OFFSET_WORLD = ((kartMin[2] + kartMax[2]) / 2 - kart.geometry.frontAxle[2]) * KART_SCALE;
 
 const GRID_COLUMN_OFFSET = 0.9;
 const GRID_ROW_OFFSET = 3;
@@ -64,7 +72,7 @@ export function carPositionToWorld(car, index = 0, carCount = 1) {
   const grid = startingGridWorldOffset(index, carCount);
   return {
     x: grid.x + clampCarLane(car.lane ?? 0, index, carCount) * LANE_TO_WORLD,
-    y: CAR_SIZE_WORLD.y / 2 + 0.04,
+    y: CAR_SIZE_WORLD.y / 2,
     z: grid.z * Math.max(0, 1 - car.distance / GRID_FADE_DISTANCE) - car.distance * DISTANCE_TO_WORLD,
   };
 }

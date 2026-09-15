@@ -39,28 +39,6 @@ export default function KartDriveTest() {
       scene = loaded;
       resize();
       publish();
-      const asset = await new Promise((resolve, reject) => {
-        scene.app.assets.loadFromUrl("/models/kart/kart-round.glb", "container", (error, result) => error ? reject(error) : resolve(result));
-      });
-      if (cancelled) return;
-      const state = scene.carStates.get("test-kart");
-      for (const render of state.entity.findComponents("render")) render.enabled = false;
-      const kart = asset.resource.instantiateRenderEntity({ castShadows: true });
-      scene.app.root.addChild(kart);
-      const meshes = kart.findComponents("render").flatMap((render) => render.meshInstances);
-      const bounds = meshes[0].aabb.clone();
-      for (const mesh of meshes.slice(1)) bounds.add(mesh.aabb);
-      const scale = CAR_SIZE_WORLD.z / (bounds.halfExtents.z * 2);
-      const center = bounds.center.clone();
-      const bottom = center.y - bounds.halfExtents.y;
-      state.entity.addChild(kart);
-      kart.setLocalScale(scale, scale, scale);
-      kart.setLocalPosition(-center.x * scale, -CAR_SIZE_WORLD.y / 2 - bottom * scale, CAR_FRONT_AXLE_OFFSET_WORLD - center.z * scale);
-      const idle = asset.resource.animations[0];
-      if (idle) {
-        kart.addComponent("anim", { activate: true });
-        kart.anim.assignAnimation("Idle", idle.resource);
-      }
       scene.app.on("update", (elapsed) => {
         const dt = Math.min(elapsed, 0.05);
         const throttle = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
