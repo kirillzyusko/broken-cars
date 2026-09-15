@@ -1,21 +1,34 @@
-export const DISTANCE_TO_WORLD = 0.12;
-export const ROAD_HALF_WIDTH = 6;
-export const ROAD_WORLD_LENGTH = 500 * DISTANCE_TO_WORLD;
+import {
+  CAR_FRONT_AXLE_OFFSET_WORLD,
+  DISTANCE_TO_WORLD,
+  ROAD_HALF_WIDTH,
+  ROAD_WORLD_LENGTH,
+  carPositionToWorld,
+  obstaclePositionToWorld,
+  obstacleSizeToWorld,
+} from "../shared/race-config.js";
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
+export { DISTANCE_TO_WORLD, ROAD_HALF_WIDTH, ROAD_WORLD_LENGTH };
 
 export function carWorldTransform(car, index, carCount) {
-  const hasStartingGrid = carCount > 1;
-  const columnOffset = hasStartingGrid ? (index % 2 === 0 ? -1.35 : 1.35) : 0;
-  const rowOffset = hasStartingGrid ? Math.floor(index / 2) * 2.6 : 0;
+  return carPositionToWorld(car, index, carCount);
+}
 
+export function frontAxleWorldPosition(position, yawDegrees) {
+  const yawRadians = yawDegrees * Math.PI / 180;
   return {
-    x: clamp(columnOffset + car.lane * 3.3, -4.75, 4.75),
-    y: 0.55,
-    z: -car.distance * DISTANCE_TO_WORLD + rowOffset,
+    x: position.x - Math.sin(yawRadians) * CAR_FRONT_AXLE_OFFSET_WORLD,
+    y: position.y,
+    z: position.z - Math.cos(yawRadians) * CAR_FRONT_AXLE_OFFSET_WORLD,
   };
+}
+
+export function raceObstaclesFromRoom(room) {
+  return (room?.obstacles ?? []).map((obstacle) => ({
+    ...obstacle,
+    position: obstaclePositionToWorld(obstacle),
+    size: obstacleSizeToWorld(obstacle),
+  }));
 }
 
 export function raceCarsFromRoom(room, currentPlayerId = null) {
@@ -28,7 +41,15 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     color: player.car.color,
     distance: player.car.distance,
     speed: player.car.speed,
+    velocityX: player.car.velocityX ?? 0,
+    velocityZ: player.car.velocityZ ?? player.car.speed,
+    heading: player.car.heading ?? 0,
+    steeringAngle: player.car.steeringAngle ?? 0,
+    angularVelocity: player.car.angularVelocity ?? 0,
+    massKg: player.car.massKg ?? 1_000,
     rank: player.car.rank,
+    collisionCount: player.car.collisionCount ?? 0,
+    lastCollision: player.car.lastCollision ?? null,
     isCurrent: player.id === currentPlayerId,
     position: carWorldTransform(player.car, index, racers.length),
   }));

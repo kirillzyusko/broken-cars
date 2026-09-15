@@ -430,8 +430,12 @@ function getPlayerId(roomId) {
 function ControllerButton({ control, label, active, onControl, children, className = "" }) {
   function press(event) {
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     onControl(control, true);
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // The control remains active even when a browser cannot capture this pointer.
+    }
   }
 
   function release(event) {

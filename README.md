@@ -1,6 +1,6 @@
 # Broken Cars
 
-A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders a simple road and synchronized box cars; every player gets the same working acceleration, brakes, and steering. After a finish, the host can start a rematch with the same cars.
+A local, server-authoritative multiplayer party racing prototype. The host opens a waiting room, players scan its QR code, and the host starts a shared car-building round once everyone has joined. PlayCanvas renders a simple road, synchronized box cars, and three lane barriers. The cars use responsive arcade-kart acceleration and grip without drifting or jumping. Every car has the same 1,000 kg mass; collisions exchange two-dimensional linear momentum, apply angular impulse on off-centre hits, and rebound from static barriers. After a finish, the host can start a rematch with the same cars.
 
 ## Run locally
 
@@ -31,7 +31,9 @@ Tuning reports use the same selector. A concrete symptom such as `it slides like
 - Express serves rooms and the web client from one LAN-accessible port.
 - WebSockets carry room state, prompt submissions, and live control intent.
 - `server/game.js` exports one framework-independent `BrokenCarsGame` object. It owns the complete public integration surface: rooms, prompts, races, tuning, repairs, controls, ticks, and privacy-filtered snapshots.
-- `server/game-engine.js` contains the state machine and physics. OpenAI/local selectors are injected into `BrokenCarsGame`, so tests and future transports can replace them without touching game rules.
+- `server/game-engine.js` contains the state machine, arcade-kart driving model, swept collision detection, and impulse response. Cars carry world-space velocity and angular velocity. Equal-mass car impacts conserve linear momentum with restitution and contact friction; static barriers reflect the contact-normal velocity so fast cars cannot tunnel through them.
+- `shared/race-config.js` is the single geometry source for the server colliders and the PlayCanvas road, grid, cars, and barriers.
+- OpenAI/local selectors are injected into `BrokenCarsGame`, so tests and future transports can replace them without touching game rules.
 - WebSockets are only a transport adapter. React consumes snapshots and calls semantic actions from `useGameSocket` (`startBuild`, `submitCarPrompt`, `startRace`, `startTuning`, `submitRepair`, `startNextRace`, `setControls`). A UI redesign does not need to know packet shapes.
 - Room state is in memory for this local prototype and expires after six hours. Restarting the server clears it.
 

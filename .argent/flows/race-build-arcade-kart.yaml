@@ -1,0 +1,10 @@
+steps:
+  - echo: On the active car-build form. Focus the car description field.
+  - tap:
+      x: 0.49
+      y: 0.41
+  - tool: keyboard
+    args:
+      text: Arcade kart
+executionPrerequisite: Safari is open on an active Funny Cars player build
+  screen with at least 20 seconds remaining.
