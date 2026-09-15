@@ -37,9 +37,11 @@ export function setupRaceLighting(app) {
     shadowType: pc.SHADOW_PCF5,
     shadowDistance: 110,
     shadowResolution: 2048,
-    shadowBias: 0.12,
-    normalOffsetBias: 0.06,
+    // Keep enough separation to prevent self-shadowing on grazing surfaces.
+    shadowBias: 0.08,
+    normalOffsetBias: 0.04,
     numCascades: 3,
+    cascadeBlend: 0.2,
   });
   sun.setEulerAngles(28, -35, 0);
   app.root.addChild(sun);

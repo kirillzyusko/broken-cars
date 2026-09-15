@@ -39,6 +39,7 @@ export async function loadCorsicaMap(app, isCancelled) {
   warmMapFoliage(visual);
   app.root.addChild(visual);
   const asphaltMaterials = new Set();
+  const flatRoadMaterials = new Set(["Circuit / graphite asphalt", "Review / flat ivory road paint"]);
   for (const render of visual.findComponents("render")) {
     for (const mesh of render.meshInstances) {
       if (mesh.material.name === "Circuit / graphite asphalt") asphaltMaterials.add(mesh.material);
@@ -52,7 +53,9 @@ export async function loadCorsicaMap(app, isCancelled) {
         mesh.cull = true;
       }
     }
-    if (/Ocean|grass|flowers|patch-/i.test(render.entity.name)) render.castShadows = false;
+    // The coplanar road and paint receive shadows but must not shadow themselves.
+    const flatRoad = render.meshInstances.every((mesh) => flatRoadMaterials.has(mesh.material.name));
+    if (flatRoad || /Ocean|grass|flowers|patch-/i.test(render.entity.name)) render.castShadows = false;
   }
   for (const material of asphaltMaterials) {
     // Dry asphalt should not mirror the sky, even at grazing camera angles.
