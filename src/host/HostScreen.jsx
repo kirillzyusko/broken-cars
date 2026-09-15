@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import BackgroundMusic from "../BackgroundMusic.jsx";
 import { useGameSocket } from "../use-game-socket.js";
 import { useServerClock } from "../lib/use-now.js";
@@ -57,7 +58,7 @@ function HostKeyMissing() {
   );
 }
 
-export function HostScreen({ roomId }) {
+export function HostScreen({ roomId, onPhaseChange }) {
   const hostToken = sessionStorage.getItem(`broken-cars:host:${roomId}`) ?? "";
   const storedJoinUrl = sessionStorage.getItem(`broken-cars:join:${roomId}`);
   const joinUrl = storedJoinUrl ?? `${window.location.origin}/play/${roomId}`;
@@ -68,13 +69,14 @@ export function HostScreen({ roomId }) {
   });
   const now = useServerClock(room);
   const history = useRaceHistory(room);
+  useEffect(() => { onPhaseChange?.(room?.phase ?? null); }, [onPhaseChange, room?.phase]);
 
   if (!hostToken) return <HostKeyMissing />;
 
   const hostAction = hostActionFor(room, now, actions);
   let screen;
   if (!room) {
-    screen = <TvLoading />;
+    screen = <TvLoading label={null} />;
   } else {
     switch (room.phase) {
       case "waiting":
@@ -107,7 +109,7 @@ export function HostScreen({ roomId }) {
       {screen}
       <BackgroundMusic racing={room?.phase === "racing" || room?.phase === "finished"} />
       <ErrorBanner message={error} onClose={clearError} />
-      <ConnectionBadge connection={connection} />
+      {room && <ConnectionBadge connection={connection} />}
     </TvStage>
   );
 }

@@ -1,4 +1,5 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
+import MenuMapBackground from "./MenuMapBackground.jsx";
 import HostLoadingScreen from "./HostLoadingScreen.jsx";
 import { Home } from "./Home.jsx";
 import { HostScreen } from "./host/HostScreen.jsx";
@@ -20,7 +21,19 @@ function routeFromPath() {
 }
 
 export default function App() {
-  const { pathname } = window.location;
+  const [pathname, setPathname] = useState(window.location.pathname);
+  const [hostPhase, setHostPhase] = useState(null);
+  useEffect(() => {
+    const changed = () => { setHostPhase(null); setPathname(window.location.pathname); };
+    window.addEventListener("popstate", changed);
+    return () => window.removeEventListener("popstate", changed);
+  }, []);
+  const openRoom = (roomId) => {
+    const path = `/host/${roomId}`;
+    window.history.pushState(null, "", path);
+    setHostPhase(null);
+    setPathname(path);
+  };
   if (pathname === "/test/player") return <Suspense fallback={null}><PlayerRaceTest /></Suspense>;
   if (pathname === "/test/loading") return <Suspense fallback={null}><LoadingScreenTest /></Suspense>;
   if (pathname === "/map/drive") return <Suspense fallback={null}><KartDriveTest /></Suspense>;
@@ -28,7 +41,11 @@ export default function App() {
   if (pathname === "/map") return <Suspense fallback={null}><MapPreview /></Suspense>;
 
   const route = routeFromPath();
-  if (route.page === "host") return <HostLoadingScreen><HostScreen roomId={route.roomId} /></HostLoadingScreen>;
   if (route.page === "play") return <PlayerScreen roomId={route.roomId} />;
-  return <HostLoadingScreen><Home /></HostLoadingScreen>;
+  const lobby = route.page === "host";
+  const showMap = !lobby || hostPhase === null || hostPhase === "waiting";
+  return <HostLoadingScreen>
+    {showMap && <div className="menu-map-layer"><MenuMapBackground /></div>}
+    {lobby ? <HostScreen key={route.roomId} roomId={route.roomId} onPhaseChange={setHostPhase} /> : <Home onOpenRoom={openRoom} />}
+  </HostLoadingScreen>;
 }

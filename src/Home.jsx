@@ -1,10 +1,9 @@
 import { useState } from "react";
 import BackgroundMusic from "./BackgroundMusic.jsx";
-import MenuMapBackground from "./MenuMapBackground.jsx";
 import { GAME_NAME } from "./config.js";
 import { StickerButton } from "./components/primitives.jsx";
 
-export function Home() {
+export function Home({ onOpenRoom }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -17,7 +16,7 @@ export function Home() {
       const room = await response.json();
       sessionStorage.setItem(`broken-cars:host:${room.roomId}`, room.hostToken);
       sessionStorage.setItem(`broken-cars:join:${room.roomId}`, room.joinUrl);
-      window.location.assign(`/host/${room.roomId}`);
+      onOpenRoom(room.roomId);
     } catch (reason) {
       setError(reason.message);
       setCreating(false);
@@ -27,8 +26,6 @@ export function Home() {
   return (
     <main className="home">
       <BackgroundMusic />
-      <MenuMapBackground />
-      <div className="home__shade" aria-hidden="true" />
       <section className="home__card">
         <h1 className="home__wordmark"><img src="/images/game-logo.svg" alt={GAME_NAME} width="642" height="55" /></h1>
         <p className="home__lede" role={error ? "alert" : undefined}>

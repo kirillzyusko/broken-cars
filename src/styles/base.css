@@ -296,7 +296,6 @@ a { color: inherit; }
 }
 .home__map { position: absolute; inset: -18px; width: calc(100% + 36px); height: calc(100% + 36px); filter: blur(8px); pointer-events: none; opacity: 0; transition: opacity 1.2s ease; }
 .home__map--ready { opacity: 1; }
-.home__shade { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(7, 20, 28, 0.62), rgba(7, 20, 28, 0.22)); }
 @media (prefers-reduced-motion: reduce) { .home__map { transition: none; } }
 .home__card {
   position: relative;
@@ -346,4 +345,22 @@ a { color: inherit; }
     animation-iteration-count: 1 !important;
     transition: none !important;
   }
+}
+
+/* Keep the same map alive as the home menu becomes the room lobby. */
+.menu-map-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--sky);
+  pointer-events: none;
+}
+.home { background: transparent; }
+.menu-map-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(7, 20, 28, 0.62), rgba(7, 20, 28, 0.22));
 }
