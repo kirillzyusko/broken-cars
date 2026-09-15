@@ -30,6 +30,7 @@ const KEY_MAP = {
 };
 
 const MAX_BUBBLES = 3;
+const COLLISION_BUBBLE_GAP_MS = 4_000;
 
 function Pad({ control, active, onControl, className = "", children }) {
   function press(event) {
@@ -102,11 +103,14 @@ export function DrivingScreen({ room, me, now, actions }) {
     }
   }, [arcade, me.lastRepair, pushBubble, room.roundNumber]);
 
-  // Collisions are public, not secret parts, so they are called out at once.
+  // Collisions are public, not secret parts, so they are called out at once,
+  // but a long scrape along the scenery should not flood the bubble zone.
   useEffect(() => {
     const impact = car?.lastCollision;
     if (!impact || impact.atMs === collisionRef.current) return;
+    const previous = collisionRef.current;
     collisionRef.current = impact.atMs;
+    if (previous !== null && impact.atMs - previous < COLLISION_BUBBLE_GAP_MS) return;
     pushBubble({
       text: impact.type === "car" ? `Traded paint with ${impact.label}!` : `Hit the ${impact.label.toLowerCase()}!`,
       tone: "remark",

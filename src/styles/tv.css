@@ -19,17 +19,20 @@
   transform: translateX(-50%);
   font-size: 26px;
 }
-.tv-stage .connection-badge { position: absolute; top: 60px; right: 280px; font-size: 19px; }
+/* The top-right corner is reserved for system chrome (music, connection). */
+.tv-stage .connection-badge { position: absolute; top: 26px; right: 230px; font-size: 17px; }
 .tv-stage .music-toggle {
   position: absolute;
-  top: 60px;
-  right: 60px;
+  top: 26px;
+  right: 30px;
   bottom: auto;
-  padding: 12px 22px;
-  border-width: 4px;
-  font-size: 19px;
-  box-shadow: 0 6px 0 var(--ink);
+  z-index: 25;
+  padding: 10px 18px;
+  border-width: 3px;
+  font-size: 16px;
+  box-shadow: 0 5px 0 var(--ink);
 }
+.tv-grid__header, .tv-race__header, .tv-standings__header { padding-right: 190px; }
 
 .tv-screen {
   position: relative;
@@ -331,7 +334,7 @@
   align-items: center;
   gap: 32px;
   height: 98px;
-  padding: 0 40px;
+  padding: 0 190px 0 40px;
   border-bottom: 6px solid var(--ink);
   background: var(--cream);
 }

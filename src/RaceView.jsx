@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState } from "react";
 import { raceCarsFromRoom, raceObstaclesFromRoom } from "./race-scene-model.js";
 import { createRaceScene, syncCars, syncObstacles } from "./race-scene-runtime.js";
 import { decoratePlayers } from "./lib/identity.js";
@@ -9,7 +9,43 @@ import { decoratePlayers } from "./lib/identity.js";
  * `view: "spectator"` follows the leader from broadcast height. Karts wear
  * their seat colour so they match the badges everywhere else.
  */
-export default function RaceView({
+class RaceViewBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error) {
+    console.error("Race view failed", error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className={`race-view ${this.props.className}`}>
+          <p className="race-view__error" role="alert">
+            {this.state.error?.message ?? "3D rendering is unavailable."}
+          </p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function RaceView(props) {
+  return (
+    <RaceViewBoundary className={props.className ?? ""}>
+      <RaceCanvas {...props} />
+    </RaceViewBoundary>
+  );
+}
+
+function RaceCanvas({
   room,
   currentPlayerId = null,
   view = "spectator",
@@ -77,8 +113,13 @@ export default function RaceView({
     return () => {
       cancelled = true;
       observer.disconnect();
-      scene?.destroy();
       sceneRef.current = null;
+      try {
+        scene?.destroy();
+      } catch (error) {
+        // A renderer teardown hiccup must never take the whole screen down.
+        console.warn("Race view teardown failed", error);
+      }
     };
   }, []);
 
