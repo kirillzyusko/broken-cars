@@ -7,6 +7,7 @@ import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress } from "../shared/track-world.js";
 import { createDrivingWorld } from "../shared/driving-world.js";
 import track from "./corsica-track.json" with { type: "json" };
+import "./styles.css";
 
 export default function KartDriveTest() {
   const canvasRef = useRef(null);

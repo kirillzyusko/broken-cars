@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kaaaaart-fast",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3002",
+        "BUILD_DURATION_MS=15000",
+        "TUNING_DURATION_MS=15000",
+        "START_COUNTDOWN_MS=1000",
+        "MAX_RACE_DURATION_MS=30000",
+        "npm",
+        "run",
+        "dev"
+      ],
+      "port": 3002
+    },
+    {
+      "name": "kaaaaart-broken",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3002",
+        "ENABLE_BROKEN_PARTS=true",
+        "BUILD_DURATION_MS=15000",
+        "TUNING_DURATION_MS=15000",
+        "START_COUNTDOWN_MS=1000",
+        "MAX_RACE_DURATION_MS=30000",
+        "npm",
+        "run",
+        "dev"
+      ],
+      "port": 3002
+    }
+  ]
+}

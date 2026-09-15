@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createMapGraphicsScene } from "./map-graphics-runtime.js";
+import "./styles.css";
 
 export default function MapGraphicsTest() {
   const canvasRef = useRef(null);

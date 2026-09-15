@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const CLIENT_PROTOCOL_VERSION = 5;
+const CLIENT_PROTOCOL_VERSION = 6;
 
 export function useGameSocket({ roomId, role, hostToken, clientId }) {
   const socketRef = useRef(null);
@@ -64,6 +64,7 @@ export function useGameSocket({ roomId, role, hostToken, clientId }) {
   }, []);
 
   const actions = useMemo(() => ({
+    setProfile: ({ name, color }) => send({ type: "set_profile", name, color }),
     startBuild: () => send({ type: "start_prompting", hostToken }),
     submitCarPrompt: (prompt) => send({ type: "submit_prompt", prompt }),
     startRace: () => send({ type: "start_race", hostToken }),

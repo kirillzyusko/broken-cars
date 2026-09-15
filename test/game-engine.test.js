@@ -464,10 +464,10 @@ test("room snapshots advertise the current client protocol", () => {
   const engine = new GameEngine();
   const room = engine.createRoom();
   const state = engine.serialize(room);
-  assert.equal(state.protocolVersion, 5);
+  assert.equal(state.protocolVersion, 6);
   assert.equal(state.defectsEnabled, false);
-  assert.equal(state.buildDurationMs, 60_000);
-  assert.equal(state.tuningDurationMs, 60_000);
+  assert.equal(state.buildDurationMs, 15_000);
+  assert.equal(state.tuningDurationMs, 30_000);
   assert.deepEqual(state.obstacles, TRACK_OBSTACLES);
 });
 
@@ -618,4 +618,115 @@ test("host snapshots never reveal private tuning prompts", async () => {
   assert.equal("tuningPrompt" in hostPlayer, false);
   assert.equal(hostPlayer.hasTuningPrompt, true);
   assert.equal(ownerPlayer.tuningPrompt, "Secret brake report");
+});
+
+test("players claim a name and a unique colour while the room is waiting", () => {
+  const engine = new GameEngine({ buildDurationMs: 100 });
+  const room = engine.createRoom(1_000);
+  const first = engine.joinPlayer(room.id, "player-1", 1_010);
+  const second = engine.joinPlayer(room.id, "player-2", 1_011);
+
+  assert.equal(first.named, false);
+  assert.equal(first.name, "Driver 1");
+
+  engine.setProfile(room.id, first.id, { name: "  Denise\u0000 the   Fast  ", color: "blue" });
+  assert.equal(first.name, "Denise the Fast");
+  assert.equal(first.named, true);
+  assert.equal(first.color, "blue");
+
+  assert.throws(
+    () => engine.setProfile(room.id, second.id, { name: "Omar", color: "blue" }),
+    /taken/,
+  );
+  assert.throws(
+    () => engine.setProfile(room.id, second.id, { name: "   ", color: "red" }),
+    /name/i,
+  );
+  assert.throws(
+    () => engine.setProfile(room.id, second.id, { name: "Omar", color: "pink" }),
+    /colours/,
+  );
+  assert.throws(
+    () => engine.setProfile(room.id, "nobody", { name: "Omar", color: "red" }),
+    /Join/,
+  );
+
+  engine.setProfile(room.id, second.id, { name: "Omar", color: null });
+  assert.equal(second.color, null);
+  assert.equal(second.named, true);
+
+  const snapshot = engine.serialize(room, 1_012);
+  assert.deepEqual(
+    snapshot.players.map((player) => [player.name, player.named, player.color]),
+    [["Denise the Fast", true, "blue"], ["Omar", true, null]],
+  );
+
+  engine.startPrompting(room.id, room.hostToken, 1_020);
+  assert.throws(
+    () => engine.setProfile(room.id, first.id, { name: "Dee", color: "red" }),
+    /lock/,
+  );
+  assert.equal(first.name, "Denise the Fast");
+});
+
+test("holding the brake stops a rolling car and then reverses it", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, drivingWorld: null });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-1", "Reversible wagon", 1_000);
+  await engine.startRoom(room.id, room.hostToken, async () => ({}), 1_002);
+  room.startsAt = 2_000;
+  room.lastTickAt = 2_000;
+  room.raceEndsAt = 100_000;
+  engine.tick(2_000);
+  const car = room.players.get("player-1").car;
+
+  engine.setControls(room.id, "player-1", { accelerate: true });
+  for (let now = 2_050; now <= 4_000; now += 50) engine.tick(now);
+  const rollingSpeed = car.speed;
+  const rollingZ = car.worldPosition.z;
+  assert.ok(rollingSpeed > 5);
+  assert.ok(car.velocityZ < 0, "forward is negative Z");
+
+  // Braking while rolling slows the car without flipping into reverse.
+  engine.setControls(room.id, "player-1", { brake: true });
+  engine.tick(4_050);
+  assert.ok(car.speed < rollingSpeed);
+  assert.ok(car.velocityZ <= 0);
+
+  // Kept held, the brake brings it to a stop and then backs it up.
+  for (let now = 4_100; now <= 8_000; now += 50) engine.tick(now);
+  assert.ok(car.velocityZ > 0, "reversing moves toward positive Z");
+  assert.ok(car.speed > 1);
+  assert.ok(car.worldPosition.z > rollingZ);
+
+  // The throttle pulls it back through zero and forward again.
+  engine.setControls(room.id, "player-1", { accelerate: true });
+  for (let now = 8_050; now <= 10_000; now += 50) engine.tick(now);
+  assert.ok(car.velocityZ < 0);
+});
+
+test("a car without brakes cannot reverse either", async () => {
+  const engine = new GameEngine({ buildDurationMs: 1, defectsEnabled: true, drivingWorld: null });
+  const room = engine.createRoom(1_000);
+  engine.joinPlayer(room.id, "player-1", 1_000);
+  engine.startPrompting(room.id, room.hostToken, 1_000);
+  engine.submitPrompt(room.id, "player-1", "Brakeless sled", 1_000);
+  await engine.startRoom(
+    room.id,
+    room.hostToken,
+    async () => ({ "player-1": ["no_brakes", "no_seatbelt", "no_steering"] }),
+    1_002,
+  );
+  room.startsAt = 2_000;
+  room.lastTickAt = 2_000;
+  room.raceEndsAt = 100_000;
+  engine.tick(2_000);
+  engine.setControls(room.id, "player-1", { brake: true });
+  for (let now = 2_050; now <= 5_000; now += 50) engine.tick(now);
+
+  const car = room.players.get("player-1").car;
+  assert.ok(car.velocityZ <= 0, "no brake pedal means no reverse gear");
+  assert.ok(car.speed < 0.5);
 });
