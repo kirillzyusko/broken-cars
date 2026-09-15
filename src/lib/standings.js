@@ -48,14 +48,18 @@ export function roundsIn(history) {
 }
 
 export function tally(history, room) {
-  const rounds = roundsIn(history);
+  // Include the last race on the first render, before the history effect saves it.
+  const completedHistory = room?.phase === "finished" && room.roundNumber > 0
+    ? { ...history, [room.roundNumber]: resultsFromRoom(room) }
+    : history;
+  const rounds = roundsIn(completedHistory);
   const latestRound = rounds[rounds.length - 1];
   return racers(room)
     .map((player) => {
       const results = {};
       let points = 0;
       for (const round of rounds) {
-        const result = history[round]?.[player.id] ?? null;
+        const result = completedHistory[round]?.[player.id] ?? null;
         results[round] = result;
         points += pointsFor(result);
       }
