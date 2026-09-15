@@ -720,8 +720,8 @@ export class GameEngine {
 
     racers.forEach((player, index) => {
       const defectIds = assignments[player.id];
-      if (!Array.isArray(defectIds) || defectIds.length < 3 || defectIds.length > 4) {
-        throw new Error(`Exactly three or four broken parts must be assigned to ${player.name}.`);
+      if (!Array.isArray(defectIds) || defectIds.length !== 3) {
+        throw new Error(`Exactly three broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
       player.controls = { ...EMPTY_CONTROLS };
