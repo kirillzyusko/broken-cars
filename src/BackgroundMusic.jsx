@@ -1,11 +1,11 @@
 import { useContext, useEffect, useRef } from "react";
 import { IntroAudioContext } from "./intro-audio-context.js";
 
-export default function BackgroundMusic({ racing = false }) {
+export default function BackgroundMusic({ racing = false, results = false }) {
   const introPlaying = useContext(IntroAudioContext);
   const audioRef = useRef(null);
 
-  const source = racing ? "/audio/retro-roundabout.mp3" : "/audio/choose-your-racer.mp3";
+  const source = results ? "/audio/you-won.mp3" : racing ? "/audio/retro-roundabout.mp3" : "/audio/choose-your-racer.mp3";
 
   useEffect(() => {
     const audio = audioRef.current ?? new Audio();

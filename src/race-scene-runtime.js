@@ -1,4 +1,5 @@
 import * as pc from "playcanvas";
+import { resultsLapPose } from "./results-lap.js";
 import { createTireMarks } from "./tire-marks.js";
 import { createKartThoughtBubbles } from "./kart-thought-bubbles.js";
 import { createStartLights } from "./start-lights.js";
@@ -188,6 +189,8 @@ export function syncObstacles(scene, obstacles) {
 function updateScene(scene, dt) {
   scene.water?.update(dt);
   const blend = smoothingFactor(dt);
+  if (scene.view === "results" && !scene.reducedMotion) scene.resultsTime = (scene.resultsTime ?? 0) + dt;
+  const finishDistance = Math.max(0, ...[...scene.carStates.values()].map((state) => state.car.distance));
   for (const state of scene.carStates.values()) {
     state.distance = pc.math.lerp(state.distance, state.car.distance, blend);
     state.lane = pc.math.lerp(state.lane, state.car.lane, blend);
@@ -199,7 +202,9 @@ function updateScene(scene, dt) {
     const turn = ((state.car.heading - state.heading + 180) % 360 + 360) % 360 - 180;
     state.heading += turn * amount;
     // Interpolate progress before sampling the curve, avoiding shortcuts across chicanes.
-    const pose = carWorldTransform(state, state.car.index, state.car.carCount);
+    const pose = scene.view === "results"
+      ? resultsLapPose(finishDistance, state.car.index, scene.resultsTime ?? 0)
+      : carWorldTransform(state, state.car.index, state.car.carCount);
     state.pose = pose;
     const axle = frontAxleWorldPosition(pose, pose.yaw);
     state.entity.setPosition(axle.x, axle.y, axle.z);
@@ -296,8 +301,8 @@ function placeCamera(scene, state, dt, raycast) {
   const followKey = `${state.mode}:${followed.car.id}`;
   if (state.followKey !== followKey) state.placed = false;
   state.followKey = followKey;
-  if (state.mode === "driver") {
-    state.chase = updateKartCamera(state.chase, pose, followed.car.speed, dt, { reset: !state.placed, raycast });
+  if (state.mode === "driver" || state.mode === "results") {
+    state.chase = updateKartCamera(state.chase, pose, state.mode === "results" ? 7 : followed.car.speed, dt, { reset: !state.placed, raycast });
     const { position, target, fov } = state.chase;
     camera.setPosition(position.x, position.y, position.z);
     camera.lookAt(target.x, target.y, target.z);
