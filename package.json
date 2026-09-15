@@ -10,7 +10,8 @@
     "start": "NODE_ENV=production node --env-file-if-exists=.env server/index.js",
     "test": "node --test",
     "test:openai": "node --env-file-if-exists=.env scripts/openai-smoke.js",
-    "check": "npm run test && npm run build"
+    "check": "npm run test && npm run build",
+    "map:pack": "node scripts/pack-corsica.js"
   },
   "dependencies": {
     "express": "^5.1.0",
@@ -21,6 +22,9 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
     "@vitejs/plugin-react": "^5.0.2",
     "vite": "^7.1.5"
   }
