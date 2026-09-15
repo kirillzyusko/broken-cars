@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { stepKart, DRIVING_STEP } from "../shared/kart-driving.js";
+import { stepKart, DRIVING_STEP, STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress, sampleTrack, LAP_GATES, carWorldTransform } from "../shared/track-world.js";
 import { createGroundedMovement } from "../shared/driving-world.js";
 import { CAR_SIZE_WORLD, ROAD_WORLD_LENGTH, TRACK_LENGTH_METERS } from "../shared/race-config.js";
@@ -39,8 +39,11 @@ test("free driving can turn a full circle and leave the old lane bounds", () => 
 test("braking stops promptly, holding brake reverses, and Space only stops", () => {
   const car = kart();
   run(car, { accelerate: true }, 3);
-  assert.ok(car.speed > 25);
-  run(car, { brake: true }, 1);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9);
+  // Stop sooner at the lower limit, before holding brake engages reverse.
+  for (let i = 0; i < 1 / DRIVING_STEP && car.speed >= 0.2; i++) {
+    run(car, { brake: true }, DRIVING_STEP);
+  }
   assert.ok(car.speed < 0.2);
   run(car, { brake: true }, 1);
   assert.ok(car.velocityZ > 0 && car.speed <= 6);
@@ -107,7 +110,7 @@ test("the real exported map supports the grid and permits driving off the road",
   assert.ok(road?.road);
   assert.ok(Math.abs(road.point.y) < 1e-5);
   const car = kart();
-  run(car, { accelerate: true }, 2, world);
+  run(car, { accelerate: true }, 3, world);
   assert.equal(car.resetVersion, 1);
   assert.ok(car.worldPosition.z < -15);
   assert.ok(Math.abs(car.worldPosition.y - CAR_SIZE_WORLD.y / 2) < 1e-5);
@@ -213,7 +216,7 @@ test("map impacts provide the same numeric HUD fields as car and barrier impacts
 
 test("short steering taps give fine control at full speed; releasing and countersteering respond quickly", () => {
   const car = kart();
-  car.speed = 28; car.velocityZ = -28;
+  car.speed = STANDARD_MAX_SPEED_MPS; car.velocityZ = -STANDARD_MAX_SPEED_MPS;
   run(car, { accelerate: true, right: true }, 0.1);
   assert.ok(car.heading > 2 && car.heading < 6, `100 ms tap turned ${car.heading} degrees`);
   run(car, { accelerate: true, right: true }, 0.4);
@@ -229,24 +232,24 @@ test("slowing down tightens the turning circle without lateral drift", () => {
   const radiusAt = (speed) => {
     const car = kart();
     car.speed = speed; car.velocityZ = -speed;
-    car.steeringAngle = 38 - 12 * speed / 28;
+    car.steeringAngle = 38 - 12 * speed / STANDARD_MAX_SPEED_MPS;
     stepKart(car, { accelerate: true, right: true }, DRIVING_STEP);
     const yawRate = car.heading * Math.PI / 180 / DRIVING_STEP;
     const forward = carWorldTransform(car).forward;
     assert.ok(Math.abs(car.velocityX * forward.z - car.velocityZ * forward.x) < 1e-8);
     return car.speed / yawRate;
   };
-  assert.ok(radiusAt(28) > radiusAt(14) * 2);
+  assert.ok(radiusAt(STANDARD_MAX_SPEED_MPS) > radiusAt(STANDARD_MAX_SPEED_MPS / 2) * 1.35);
   assert.ok(radiusAt(6) < 4);
 });
 
 test("held turns trade speed for grip and acceleration recovers promptly on the straight", () => {
   const turn = kart(), straight = kart();
-  for (const car of [turn, straight]) { car.speed = 28; car.velocityZ = -28; }
+  for (const car of [turn, straight]) { car.speed = STANDARD_MAX_SPEED_MPS; car.velocityZ = -STANDARD_MAX_SPEED_MPS; }
   run(turn, { accelerate: true, right: true }, 2);
   run(straight, { accelerate: true }, 2);
   assert.ok(straight.speed - turn.speed > 2);
-  assert.ok(turn.speed > 22);
+  assert.ok(turn.speed > STANDARD_MAX_SPEED_MPS * 0.7);
   const cornerSpeed = turn.speed;
   run(turn, { accelerate: true }, 1);
   assert.ok(turn.speed > cornerSpeed + 2);
@@ -254,23 +257,23 @@ test("held turns trade speed for grip and acceleration recovers promptly on the 
 
 test("grass slows the kart over time rather than cutting its speed in a single frame", () => {
   const car = kart();
-  car.speed = 28; car.velocityZ = -28; car.offRoad = true;
+  car.speed = STANDARD_MAX_SPEED_MPS; car.velocityZ = -STANDARD_MAX_SPEED_MPS; car.offRoad = true;
   const grass = { move: (previous, desired) => ({ position: desired, offRoad: true }) };
   stepKart(car, { accelerate: true }, DRIVING_STEP, 0, grass);
-  assert.ok(car.speed > 27 && car.speed < 28);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS - 1 && car.speed < STANDARD_MAX_SPEED_MPS);
   run(car, { accelerate: true }, 1, grass);
-  assert.ok(car.speed < 16);
+  assert.ok(car.speed < STANDARD_MAX_SPEED_MPS * 0.6);
   const grassSpeed = car.speed;
   run(car, { accelerate: true }, 1);
-  assert.ok(car.speed > grassSpeed + 5);
+  assert.ok(car.speed > grassSpeed + STANDARD_MAX_SPEED_MPS * 0.3);
 });
 
 test("acceleration gives a fast low-speed recovery and tapers toward the speed limit", () => {
   const car = kart();
   run(car, { accelerate: true }, 1.3);
-  assert.ok(car.speed > 20 && car.speed < 23);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.65 && car.speed < STANDARD_MAX_SPEED_MPS * 0.8);
   const earlySpeed = car.speed;
   run(car, { accelerate: true }, 1.3);
-  assert.ok(car.speed > 26 && car.speed <= 28);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9 && car.speed <= STANDARD_MAX_SPEED_MPS);
   assert.ok(car.speed - earlySpeed < earlySpeed / 2);
 });

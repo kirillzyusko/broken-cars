@@ -1,10 +1,10 @@
 import { recoverDriving } from "./track-world.js";
-export const STANDARD_MAX_SPEED_MPS = 28;
+export const STANDARD_MAX_SPEED_MPS = 12;
 export const DRIVING_STEP = 1 / 120;
 // Our no-drift tuning, informed by Nintendo's driving guides. These are not
 // extracted Mario Kart constants; see docs/driving-feel.md for the tradeoffs.
 export const DRIVING_TUNING = Object.freeze({
-  acceleration: 20,
+  acceleration: 8,
   steeringResponseSlow: 14,
   steeringResponseFast: 10,
   steeringReturn: 26,

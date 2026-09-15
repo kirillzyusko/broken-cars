@@ -107,7 +107,7 @@ test("standard racing skips defects and server-authoritative controls move the c
   assert.equal(selectorCalled, false);
   assert.deepEqual(car.defectIds, []);
   assert.ok(car.speed > 0);
-  assert.ok(car.speed > 20, `expected arcade-kart acceleration, received ${car.speed}`);
+  assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9, `expected arcade-kart acceleration, received ${car.speed}`);
   assert.ok(car.distance > 0);
   assert.ok(car.distance < TRACK_LENGTH_METERS);
   assert.ok(car.speed <= STANDARD_MAX_SPEED_MPS, `expected believable acceleration, received ${car.speed}`);
@@ -302,8 +302,8 @@ test("rear-end car collisions exchange momentum and separate both cars", async (
   const front = room.players.get("front-car").car;
   rear.worldPosition = { x: 0, y: CAR_SIZE_WORLD.y / 2, z: -5 };
   front.worldPosition = { x: 0, y: CAR_SIZE_WORLD.y / 2, z: -5 - CAR_SIZE_WORLD.z - 0.5 };
-  rear.speed = 26;
-  rear.velocityZ = -26;
+  rear.speed = STANDARD_MAX_SPEED_MPS * 0.9;
+  rear.velocityZ = -rear.speed;
   front.speed = 4;
   front.velocityZ = -4;
   const momentumBefore = (rear.velocityZ + front.velocityZ) * CAR_MASS_KG;

@@ -3,7 +3,7 @@ import RaceStartOverlay from "./RaceStartOverlay.jsx";
 import BackgroundMusic from "./BackgroundMusic.jsx";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
-import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
+import { DRIVING_STEP, stepKart, STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 import { resetDriving, updateLapProgress } from "../shared/track-world.js";
 import { createDrivingWorld } from "../shared/driving-world.js";
 import track from "./corsica-track.json" with { type: "json" };
@@ -97,7 +97,7 @@ export default function KartDriveTest() {
         publish();
         // Sound modules can read this event without adding a HUD or room connection.
         canvasRef.current?.dispatchEvent(new CustomEvent("kart-audio-state", { bubbles: true, detail: {
-          speed: drive.speed, throttle, brake: brake || Number(stop), steering, rpm: 1200 + drive.speed / 28 * 6800,
+          speed: drive.speed, throttle, brake: brake || Number(stop), steering, rpm: 1200 + drive.speed / STANDARD_MAX_SPEED_MPS * 6800,
         } }));
       };
     }).catch((error) => console.error("Kart driving test failed to load", error));

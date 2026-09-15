@@ -12,10 +12,10 @@ These sources describe player-visible behavior. They do not supply Nintendo's ex
 
 ## Changes
 
-- Steering taps build turn strength gradually. At full speed, a 100 ms right tap now turns about 3.8 degrees; the previous code turned about 14.5 degrees. The old turn-rate clamp reached full strength with small inputs.
+- Steering taps build turn strength gradually. At full speed, a 100 ms right tap turns less than 6 degrees; the original code turned about 14.5 degrees. The old turn-rate clamp reached full strength with small inputs.
 - Releasing steering centres the steering input quickly while preserving the kart's heading. Opposite input responds faster so left-right corrections do not keep pulling the old way.
 - Full steering uses a radius that grows with speed. Slowing down makes a tighter turn possible. Held turns shed some speed while normal tires keep their grip.
-- Acceleration is strongest at low speed and tapers near the unchanged 28 m/s limit. On flat ground, reaching 20 m/s takes about 1.28 seconds, versus 1.46 seconds before this pass.
+- Top speed is 12 m/s, about 43 km/h. This is a further one-third reduction from 18 m/s. Acceleration is also one-third gentler and still tapers near the limit. On flat ground, the kart reaches about 8.2 m/s after 1.3 seconds and 11.3 m/s after 2.6 seconds.
 - Grass targets 55% of road speed, with a firm slowdown over time instead of an instant speed cut. Returning to the road restores normal acceleration.
 - Brakes still take priority over the accelerator. Holding brake at rest reverses; Space only brakes. Broken-part effects still apply when enabled.
 

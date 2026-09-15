@@ -1,4 +1,5 @@
 import manifest from "../public/audio/kart/manifest.json" with { type: "json" };
+import { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 const smooth = (a, b, dt, rate) => a + (b - a) * (1 - Math.exp(-dt * rate));
@@ -6,7 +7,7 @@ const smooth = (a, b, dt, rate) => a + (b - a) * (1 - Math.exp(-dt * rate));
 // A continuous engine model: engine load raises revs independently of wheel
 // speed, while a slower release lets the engine wind down after lifting.
 export function engineMix(previous, car, dt) {
-  const speed = clamp(Math.abs(car.speed ?? 0) / 28, 0, 1.5);
+  const speed = clamp(Math.abs(car.speed ?? 0) / STANDARD_MAX_SPEED_MPS, 0, 1.5);
   const inferredThrottle = previous && car.speed > previous.speed + 0.01 ? 1 : 0;
   const throttle = clamp(car.throttle ?? inferredThrottle, 0, 1);
   const target = clamp(speed * 0.78 + throttle * 0.22, 0, 1);
