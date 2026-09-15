@@ -31,8 +31,8 @@ export function faultIcon(id, car = {}) {
 }
 
 // The cloud stays vector-sharp; the PNG icons are composed onto it in canvas.
-export function thoughtBubbleSvg(ids) {
-  const width = ids.length * 144 + 48;
+export function thoughtBubbleSvg() {
+  const width = 192;
   const cloud = `M30 62Q11 29 53 25Q77 3 105 22Q${width / 2} 8 ${width - 105} 22Q${width - 77} 3 ${width - 53} 25Q${width - 11} 29 ${width - 30} 62Q${width + 7} 93 ${width - 22} 124Q${width - 5} 161 ${width - 43} 177Q${width - 53} 200 ${width - 92} 187Q${width / 2} 204 92 187Q53 200 43 177Q5 161 22 124Q-7 93 30 62Z`;
   return { width, height: 256, svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${width * 2}" height="512" viewBox="0 0 ${width} 256">
     <g stroke="none" fill="#fff">

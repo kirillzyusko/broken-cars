@@ -14,7 +14,7 @@ test("faults appear five seconds after GO, fade, and reset with the race clock",
   for (const time of [null, NaN, -3000, 0, 4999, 14000, 40000]) {
     assert.equal(thoughtBubbleFrame(car, time), null);
   }
-  assert.deepEqual(thoughtBubbleFrame(car, 5500).ids, car.defectIds);
+  assert.equal(thoughtBubbleFrame(car, 5500).defectId, "no_engine");
   assert.equal(thoughtBubbleFrame(car, 5500).opacity, 1);
   assert.equal(thoughtBubbleFrame(car, 5225).opacity, 0.5);
   assert.equal(thoughtBubbleFrame(car, 13600).opacity, 0.5);
@@ -25,15 +25,17 @@ test("faults appear five seconds after GO, fade, and reset with the race clock",
 test("repaired and finished karts stay quiet, and remaining faults reflect repairs", () => {
   assert.equal(thoughtBubbleFrame({ defectIds: [] }, 6000), null);
   assert.equal(thoughtBubbleFrame({ ...car, finishedAtMs: 5700 }, 6000), null);
-  assert.deepEqual(thoughtBubbleFrame({ defectIds: ["no_brakes"] }, 6000).ids, ["no_brakes"]);
+  assert.equal(thoughtBubbleFrame({ defectIds: ["no_brakes"] }, 6000).defectId, "no_brakes");
 });
 
-test("extra faults get a full page without duplicate or unknown symbols", () => {
-  const many = { defectIds: [...car.defectIds, "no_grip", "no_engine", "unknown"] };
-  assert.deepEqual(thoughtBubbleFrame(many, 6000).ids, car.defectIds);
-  assert.deepEqual(thoughtBubbleFrame(many, 13999).ids, car.defectIds);
-  assert.deepEqual(thoughtBubbleFrame(many, 14000).ids, ["no_grip"]);
+test("only the active fault appears, with no later pages revealing other categories", () => {
+  const many = { activeDefectId: "no_grip", defectIds: [...car.defectIds, "no_grip"] };
+  assert.equal(thoughtBubbleFrame(many, 6000).defectId, "no_grip");
+  assert.equal(thoughtBubbleFrame(many, 13999).defectId, "no_grip");
+  assert.equal(thoughtBubbleFrame(many, 14000), null);
   assert.equal(thoughtBubbleFrame(many, 23000), null);
+  assert.equal(thoughtBubbleFrame({ ...many, activeDefectId: null }, 6000), null);
+  assert.equal(thoughtBubbleFrame({ ...many, activeDefectId: "unknown" }, 6000), null);
   assert.equal(thoughtBubbleFrame(car, 5100, true).scale, 1);
 });
 
@@ -59,10 +61,11 @@ test("every game fault has artwork, with the correct direction and power variant
 });
 
 test("race snapshots carry the fault variants and finish state to the world bubble", () => {
-  const publicCar = { ...car, distance: 0, speed: 0, oneWayTurn: "right", enginePowerIssue: "weak", finishedAtMs: 7000 };
+  const publicCar = { ...car, activeDefectId: "no_brakes", distance: 0, speed: 0, oneWayTurn: "right", enginePowerIssue: "weak", finishedAtMs: 7000 };
   const [sceneCar] = raceCarsFromRoom({ players: [{ id: "one", car: publicCar }] });
   assert.equal(sceneCar.oneWayTurn, "right");
   assert.equal(sceneCar.enginePowerIssue, "weak");
+  assert.equal(sceneCar.activeDefectId, "no_brakes");
   assert.equal(thoughtBubbleFrame(sceneCar, 8000), null);
 });
 
@@ -85,7 +88,12 @@ test("repair and rejoin preserve the shared quad, and late image loads cannot re
     const first = app.root.findByName("Thought bubble / One");
     const mesh = first.render.meshInstances[0].mesh;
     bubbles.sync(states);
+    assert.equal(pendingImages.length, 2);
+    assert.equal(pendingImages[1].src, faultIcon("no_engine").src);
+    state.car = { ...state.car, activeDefectId: "no_grip" };
+    bubbles.sync(states);
     assert.equal(pendingImages.length, 4);
+    assert.equal(pendingImages[3].src, faultIcon("no_grip").src);
     state.car = { name: "One", defectIds: [] };
     bubbles.sync(states);
     assert.equal(app.root.findByName("Thought bubble / One"), null);

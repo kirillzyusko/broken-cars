@@ -1,4 +1,5 @@
 import { isReversing } from "./format.js";
+import { discoverableDefectId } from "../../shared/defect-discovery.js";
 
 // Driver speech bubbles. A defect is "discovered" on the phone when the
 // player's own input runs into it, so the driver only shouts about a part once
@@ -106,26 +107,21 @@ export function shoutFor(defectId, context) {
 }
 
 /**
- * Tracks how long each defect's trigger condition has been continuously true
- * and returns the ids whose hold time has elapsed. `timers` is a mutable Map
+ * Tracks how long the active defect's trigger has been continuously true
+ * and returns its ID once the hold time elapses. `timers` is a mutable Map
  * owned by the caller so the tracker survives re-renders.
  */
 export function detectShouts({ car, controls, now, timers, alreadyShouted }) {
-  const fired = [];
-  if (!car) return fired;
-  for (const defect of car.defects) {
-    const shout = SHOUTS[defect.id];
-    if (!shout || alreadyShouted.has(defect.id)) continue;
-    const active = shout.when({ car, controls });
-    if (!active) {
-      timers.delete(defect.id);
-      continue;
-    }
-    const since = timers.get(defect.id) ?? now;
-    timers.set(defect.id, since);
-    if (now - since >= (shout.holdMs ?? DEFAULT_HOLD_MS)) fired.push(defect.id);
+  const id = discoverableDefectId(car);
+  const shout = SHOUTS[id];
+  if (!shout || alreadyShouted.has(id)) return [];
+  if (!shout.when({ car, controls })) {
+    timers.delete(id);
+    return [];
   }
-  return fired;
+  const since = timers.get(id) ?? now;
+  timers.set(id, since);
+  return now - since >= (shout.holdMs ?? DEFAULT_HOLD_MS) ? [id] : [];
 }
 
 // TV quadrant remarks are derived from public car state only. Problems are

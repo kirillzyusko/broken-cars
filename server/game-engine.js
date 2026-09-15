@@ -561,6 +561,7 @@ function publicPlayer(player, viewerPlayerId) {
     car: player.car
       ? {
           ...publicCar,
+          activeDefectId: player.car.defectIds[0] ?? null,
           name: isOwner ? player.car.name : `${player.name}'s car`,
           defects: player.car.defectIds.map((id) => publicDefect(player.car, id)),
         }

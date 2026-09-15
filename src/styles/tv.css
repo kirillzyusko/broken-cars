@@ -397,10 +397,7 @@
 .tv-feed__faults {
   display: flex;
   flex: none;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 1px;
-  max-width: 62px;
   min-height: 20px;
   margin: 0;
   padding: 0 0 0 5px;
@@ -409,7 +406,6 @@
   box-sizing: content-box;
   pointer-events: auto;
 }
-.tv-feed__faults li { display: flex; }
 .tv-feed__faults img { display: block; width: 20px; height: 20px; object-fit: contain; }
 .tv-feed__faults--fixed { padding-right: 4px; }
 .tv-feed__position {

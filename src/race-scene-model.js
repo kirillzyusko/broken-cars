@@ -1,4 +1,5 @@
 import { carWorldTransform, circuitTransform } from "../shared/track-world.js";
+import { discoverableDefectId } from "../shared/defect-discovery.js";
 export { carWorldTransform, sampleTrack } from "../shared/track-world.js";
 
 import {
@@ -35,6 +36,7 @@ export function raceCarsFromRoom(room, currentPlayerId = null) {
     name: player.name,
     color: player.car.color,
     defectIds: [...(player.car.defectIds ?? player.car.defects?.map((defect) => defect.id) ?? [])],
+    activeDefectId: discoverableDefectId(player.car),
     oneWayTurn: player.car.oneWayTurn ?? null,
     enginePowerIssue: player.car.enginePowerIssue ?? null,
     finishedAtMs: player.car.finishedAtMs ?? null,

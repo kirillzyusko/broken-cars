@@ -491,6 +491,8 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   assert.deepEqual(player.car._queuedDefectIds, ["no_grip", "no_steering", "square_wheels"]);
   const initialSnapshot = engine.serialize(room, { viewerPlayerId: "player-1" });
   assert.deepEqual(initialSnapshot.players[0].car.defectIds, ["no_engine"]);
+  assert.equal(initialSnapshot.players[0].car.activeDefectId, "no_engine");
+  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_engine");
   assert.deepEqual(initialSnapshot.players[0].car.defects.map((item) => item.id), ["no_engine"]);
   assert.equal("_queuedDefectIds" in initialSnapshot.players[0].car, false);
 
@@ -518,6 +520,7 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   assert.deepEqual(repairInput[0].defectIds, ["no_engine"]);
   assert.deepEqual(player.car.defectIds, ["no_grip"]);
   assert.deepEqual(player.car._queuedDefectIds, ["no_steering", "square_wheels"]);
+  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_grip");
   assert.equal(player.lastRepairId, "no_engine");
   assert.deepEqual(player.lastRepairIds, ["no_engine"]);
   assert.deepEqual(
@@ -540,6 +543,7 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   );
   assert.deepEqual(player.car.defectIds, ["no_steering"]);
   assert.deepEqual(player.car._queuedDefectIds, ["square_wheels"]);
+  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "no_steering");
   assert.equal(player.lastRepairId, "no_grip");
 
   room.phase = "finished";
@@ -554,6 +558,7 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   assert.deepEqual(player.car.defectIds, ["square_wheels"]);
   assert.deepEqual(player.car._queuedDefectIds, []);
   assert.equal(player.lastRepairId, "no_steering");
+  assert.equal(engine.serialize(room).players[0].car.activeDefectId, "square_wheels");
 
   room.phase = "finished";
   engine.startTuning(room.id, room.hostToken, 5_000);
@@ -567,6 +572,7 @@ test("repairs unlock fatal, critical, and annoying defects in order", async () =
   assert.deepEqual(player.car.defectIds, []);
   assert.deepEqual(player.car._queuedDefectIds, []);
   assert.equal(player.lastRepairId, "square_wheels");
+  assert.equal(engine.serialize(room).players[0].car.activeDefectId, null);
 });
 
 test("the engine applies the LLM decision without locally parsing the prompt", async () => {
