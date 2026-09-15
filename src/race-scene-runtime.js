@@ -2,6 +2,7 @@ import * as pc from "playcanvas";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
 import { loadRaceSkybox } from "./race-skybox.js";
 import { createRaceWater } from "./race-water.js";
+import { setupRaceLighting, setupContactShadows } from "./race-lighting.js";
 import { CAR_HEIGHT, carWorldTransform, smoothingFactor } from "./race-scene-model.js";
 import track from "./corsica-track.json" with { type: "json" };
 
@@ -13,26 +14,20 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
   app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio, 1.5);
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.scene.ambientLight = new pc.Color(0.64, 0.70, 0.76);
-  const sun = new pc.Entity("Corsica afternoon sun");
-  sun.addComponent("light", {
-    type: "directional", color: new pc.Color(1, 0.93, 0.81), intensity: 1.5,
-    castShadows: true, shadowDistance: 100, shadowResolution: 2048,
-    shadowBias: 0.15, normalOffsetBias: 0.06, numCascades: 3,
-  });
-  sun.setEulerAngles(48, -35, 0);
-  app.root.addChild(sun);
+  setupRaceLighting(app);
   const camera = new pc.Entity("Race camera");
   camera.addComponent("camera", {
     clearColor: new pc.Color(0.59, 0.78, 0.85), nearClip: 0.08, farClip: 650,
-    fov: 62, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB,
+    fov: 62, toneMapping: pc.TONEMAP_NEUTRAL, gammaCorrection: pc.GAMMA_SRGB,
   });
   app.root.addChild(camera);
+  const cameraFrame = setupContactShadows(app, camera);
   app.start();
   const scene = {
-    app, camera, view, currentPlayerId, carStates: new Map(), materials: [],
+    app, camera, cameraFrame, view, currentPlayerId, carStates: new Map(), materials: [],
     map: null, skybox: null, water: null, cameraPlaced: false,
     destroy() {
+      cameraFrame.destroy();
       app.scene.skybox = null;
       scene.skybox?.destroy();
       app.destroy();

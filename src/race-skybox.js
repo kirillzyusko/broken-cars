@@ -14,6 +14,6 @@ export async function loadRaceSkybox(app, isCancelled) {
   const cubemap = pc.EnvLighting.generateSkyboxCubemap(asset.resource, 512);
   cubemap.name = "Kenney / day skybox";
   app.scene.skybox = cubemap;
-  app.scene.skyboxIntensity = 1;
+  app.scene.skyboxIntensity = 0.95;
   return cubemap;
 }

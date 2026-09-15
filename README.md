@@ -70,6 +70,8 @@ The collision GLB contains 40 static triangle meshes with 253,414 triangles. Ter
 
 The ocean uses `src/race-water.js` for animated texture distortion, two layers of curved highlights, and a subtle sky reflection. `src/water-textures.js` generates seamless patterns locally. The effect follows the texture-coordinate distortion approach in [DragoniteSpam's ShaderWaterTexture](https://github.com/DragoniteSpam-GameMaker-Tutorials/ShaderWaterTexture), with original procedural textures. It changes only the material: the ocean stays flat, opaque, and without a collider.
 
+Lighting in `src/race-lighting.js` uses a high summer sun, soft filtered shadows, blue sky fill, and a small warm ground bounce. Neutral tone mapping preserves the bright green, coral, and turquoise palette while keeping white signs readable. PlayCanvas CameraFrame adds full-resolution, blurred SSAO to the ambient lighting, using a 1.5-meter radius and 16 samples for contact depth beneath props and terrain ledges. The frame keeps the neutral tone mapping and multisample antialiasing.
+
 The sky uses Kenney's day panorama from `public/skyboxes/skybox-day.png`, converted to a cubemap by PlayCanvas. Its CC0 license ships beside the image.
 
 Coordinates use meters, Y up, and negative Z forward at the start line. Server race distance follows the exported centerline through one 500-meter lap. Steering moves across the road and the cameras follow the corners. Grid positions begin behind the gantry.

@@ -1,0 +1,60 @@
+import * as pc from "playcanvas";
+
+export function setupContactShadows(app, camera) {
+  const frame = new pc.CameraFrame(app, camera.camera);
+  frame.rendering.toneMapping = pc.TONEMAP_NEUTRAL;
+  frame.rendering.samples = Math.min(4, app.graphicsDevice.maxSamples);
+  // Occlude ambient light at nearby surfaces without dimming direct sunlight.
+  frame.ssao.type = pc.SSAOTYPE_LIGHTING;
+  frame.ssao.radius = 1.5;
+  frame.ssao.intensity = 0.7;
+  frame.ssao.power = 3;
+  frame.ssao.samples = 16;
+  frame.ssao.scale = 1;
+  frame.ssao.blurEnabled = true;
+  frame.ssao.randomize = false;
+  frame.update();
+  return frame;
+}
+
+export function setupRaceLighting(app) {
+  // Bright midday light, with sky fill so the mountain side stays readable.
+  app.scene.ambientLight = new pc.Color(0.68, 0.78, 0.90);
+  app.scene.exposure = 1.15;
+
+  const sun = new pc.Entity("Corsica / summer sun");
+  sun.addComponent("light", {
+    type: "directional",
+    color: new pc.Color(1, 0.965, 0.89),
+    intensity: 2.15,
+    castShadows: true,
+    shadowType: pc.SHADOW_PCF5,
+    shadowDistance: 110,
+    shadowResolution: 2048,
+    shadowBias: 0.12,
+    normalOffsetBias: 0.06,
+    numCascades: 3,
+  });
+  sun.setEulerAngles(28, -35, 0);
+  app.root.addChild(sun);
+
+  const skyFill = new pc.Entity("Corsica / blue sky fill");
+  skyFill.addComponent("light", {
+    type: "directional",
+    color: new pc.Color(0.73, 0.88, 1),
+    intensity: 0.48,
+    castShadows: false,
+  });
+  skyFill.setEulerAngles(58, 145, 0);
+  app.root.addChild(skyFill);
+
+  const bounce = new pc.Entity("Corsica / warm ground bounce");
+  bounce.addComponent("light", {
+    type: "directional",
+    color: new pc.Color(1, 0.86, 0.68),
+    intensity: 0.14,
+    castShadows: false,
+  });
+  bounce.setEulerAngles(155, -20, 0);
+  app.root.addChild(bounce);
+}
