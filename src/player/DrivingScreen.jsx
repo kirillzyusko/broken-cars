@@ -5,6 +5,7 @@ import { StartSignal } from "../components/StartSignal.jsx";
 import { detectShouts, shoutFor } from "../lib/shouts.js";
 import { positionOf, racers } from "../lib/standings.js";
 import { Avatar } from "../components/primitives.jsx";
+import { useRaceOrientation } from "../lib/use-race-orientation.js";
 
 const RaceView = lazy(() => import("../RaceView.jsx"));
 
@@ -65,6 +66,7 @@ function Pad({ control, active, onControl, className = "", children }) {
 }
 
 export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
+  const { portrait, fullscreen, enterLandscape } = useRaceOrientation();
   const { car } = me;
   const racing = room.phase === "racing";
   const position = positionOf(room, me.id);
@@ -136,12 +138,13 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
   }, [car, pushBubble]);
 
   const updateControl = useCallback((control, pressed) => {
+    if (pressed && portrait) return;
     if (controlsRef.current[control] === pressed) return;
     const next = { ...controlsRef.current, [control]: pressed };
     controlsRef.current = next;
     setControls(next);
     actions.setControls(next);
-  }, [actions]);
+  }, [actions, portrait]);
 
   useEffect(() => {
     function releaseAll() {
@@ -151,12 +154,13 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
     }
     window.addEventListener("blur", releaseAll);
     document.addEventListener("visibilitychange", releaseAll);
+    releaseAll();
     return () => {
       window.removeEventListener("blur", releaseAll);
       document.removeEventListener("visibilitychange", releaseAll);
       releaseAll();
     };
-  }, [actions]);
+  }, [actions, portrait]);
 
   useEffect(() => {
     const handleKey = (event, pressed) => {
@@ -180,6 +184,7 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
 
   return (
     <main className="ph-screen ph-screen--ink ph-drive">
+      <div className="ph-drive__landscape" inert={portrait} aria-hidden={portrait || undefined}>
       <div className="ph-drive__bubbles" aria-live="polite">
         {bubbles.map((bubble) => (
           <div className="ph-bubble" key={bubble.id}>
@@ -222,6 +227,14 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
       </div>
 
       <StartSignal startsAt={room.startsAt} now={now} className="ph-drive__start" />
+      {!fullscreen && document.fullscreenEnabled && <button className="ph-drive__fullscreen" type="button" onClick={enterLandscape}>Full screen</button>}
+      </div>
+      {portrait && <div className="ph-drive__rotate" role="status">
+        <span className="ph-drive__phone-icon" aria-hidden="true" />
+        <h1>Turn to race</h1>
+        <p>Hold your phone sideways to drive.</p>
+        {document.fullscreenEnabled && <button type="button" onClick={enterLandscape}>Enter landscape</button>}
+      </div>}
     </main>
   );
 }

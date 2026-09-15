@@ -28,6 +28,8 @@ Tuning reports use the same selector. A concrete symptom such as `it slides like
 
 `/test/player` runs the real phone driving screen in a local solo race. Touch pads and keyboard controls use the shared driving physics and track collisions. Open **Player test** to choose a fault, restart the countdown, or trigger the finish message. This page needs no room or other players and does not test network latency. `/test/loading` previews the host intro with sound.
 
+The player race screen requires landscape. Portrait shows a rotate-phone prompt and releases held controls. Full screen requests landscape lock where supported. The track fills the viewport, with translucent steering and pedal controls at the bottom and speed and position at the top.
+
 The screens follow the Claude Design handoff: a sticker-card arcade look with thick ink outlines, hard offset shadows, and three self-hosted typefaces (Baloo 2, Nunito, JetBrains Mono via `@fontsource`), so the demo needs no internet for fonts.
 
 - `src/host/` renders the TV. `HostScreen.jsx` maps room phases to six screens (join, prompt time, grid, race, standings, final) inside `TvStage.jsx`, a fixed 1920×1080 stage scaled uniformly to any display. The race screen shows one broadcast camera of Corsica GP through `src/RaceView.jsx`, a bare-canvas wrapper around `src/race-scene-runtime.js`, with a HUD card per kart on top; loading the island once per screen keeps the TV to a single map instance. `src/RaceScene.jsx` remains the framed panel used by the map preview page. The host's only controls are the yellow buttons that advance the round.

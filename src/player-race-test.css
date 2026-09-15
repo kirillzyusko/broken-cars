@@ -1,6 +1,6 @@
 .player-race-test-tools {
   position: fixed;
-  top: max(8px, env(safe-area-inset-top));
+  top: max(100px, calc(env(safe-area-inset-top) + 84px));
   right: 8px;
   z-index: 100;
   max-width: min(300px, calc(100vw - 16px));
