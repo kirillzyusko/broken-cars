@@ -1,0 +1,8 @@
+{
+  "name": "Kaaaaart",
+  "short_name": "Kaaaaart",
+  "display": "fullscreen",
+  "scope": "/",
+  "background_color": "#141210",
+  "theme_color": "#141210"
+}
