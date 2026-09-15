@@ -39,6 +39,15 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
     car.acceleratorStuck = true;
   }
   const wantsAcceleration = acceleratePressed || car.acceleratorStuck;
+  const radians = car.heading * Math.PI / 180;
+  const forwardX = Math.sin(radians), forwardZ = -Math.cos(radians);
+  let forwardSpeed = car.velocityX * forwardX + car.velocityZ * forwardZ;
+  let lateralSpeed = car.velocityX * -forwardZ + car.velocityZ * forwardX;
+  const canBrake = !defects.has("no_brakes");
+  car.reverseHeld = brakePressed && !wantsAcceleration && Math.abs(forwardSpeed) < 0.2
+    ? (car.reverseHeld ?? 0) + dt : forwardSpeed < -0.2 && brakePressed ? car.reverseHeld : 0;
+  const reversing = brakePressed && !wantsAcceleration && car.reverseHeld >= 0.25 && canBrake;
+  const enginePowered = wantsAcceleration || reversing;
 
   let steerInput = (controls.right ? 1 : 0) - (controls.left ? 1 : 0);
   if (defects.has("reversed_steering")) steerInput *= -1;
@@ -54,7 +63,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   let maxSpeed = STANDARD_MAX_SPEED_MPS;
   let engineAcceleration = DRIVING_TUNING.acceleration;
   let tireGrip = 30;
-  let rollingDrag = wantsAcceleration
+  let rollingDrag = enginePowered
     ? 0.35 + 0.0012 * car.speed ** 2
     : 2.4 + 0.025 * car.speed;
 
@@ -96,7 +105,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   }
 
   if (defects.has("no_cooling")) {
-    const heatDelta = wantsAcceleration ? 0.17 * dt : -0.1 * dt;
+    const heatDelta = enginePowered ? 0.17 * dt : -0.1 * dt;
     car.heat = clamp(car.heat + heatDelta, 0, 1);
     if (car.heat > 0.65) {
       engineAcceleration *= Math.max(0.08, 1 - (car.heat - 0.65) * 2.4);
@@ -108,16 +117,8 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
 
   if (car.offRoad) { maxSpeed *= DRIVING_TUNING.offRoadSpeed; engineAcceleration *= 0.8; rollingDrag += 2; }
   const speedRatio = clamp(car.speed / maxSpeed, 0, 1);
-  const radians = car.heading * Math.PI / 180;
-  const forwardX = Math.sin(radians), forwardZ = -Math.cos(radians);
-  let forwardSpeed = car.velocityX * forwardX + car.velocityZ * forwardZ;
-  let lateralSpeed = car.velocityX * -forwardZ + car.velocityZ * forwardX;
-  const canBrake = !defects.has("no_brakes");
-  car.reverseHeld = brakePressed && !wantsAcceleration && Math.abs(forwardSpeed) < 0.2
-    ? (car.reverseHeld ?? 0) + dt : forwardSpeed < -0.2 && brakePressed ? car.reverseHeld : 0;
-  const reversing = brakePressed && !wantsAcceleration && car.reverseHeld >= 0.25 && canBrake;
   const braking = canBrake && (controls.stop || (brakePressed && !reversing));
-  car.throttle = wantsAcceleration || reversing ? 1 : 0;
+  car.throttle = enginePowered ? 1 : 0;
   car.braking = !!braking;
   if (braking) forwardSpeed = moveToward(forwardSpeed, 0, 28 * dt);
   else if (reversing) forwardSpeed = Math.max(-6, forwardSpeed - engineAcceleration * 0.55 * dt);
