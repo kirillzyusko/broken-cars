@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const CLIENT_PROTOCOL_VERSION = 2;
+const CLIENT_PROTOCOL_VERSION = 3;
 
 export function useGameSocket({ roomId, role, hostToken, clientId }) {
   const socketRef = useRef(null);

@@ -156,6 +156,7 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 .defect-card { display: grid; gap: 0.25rem; padding: 0.75rem; border-left: 3px solid var(--orange); border-radius: 5px; background: #2a1d19; }
 .defect-card strong { color: #ff9a83; font-size: 0.86rem; }
 .defect-card span { color: #c9aaa3; font-size: 0.75rem; line-height: 1.35; }
+.fully-tuned { margin: 0.9rem 0 0; color: var(--acid); font-weight: 800; }
 
 .countdown-overlay {
   position: fixed;
@@ -174,6 +175,7 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 
 .prompt-panel { position: relative; overflow: hidden; padding-top: 2rem; }
 .prompt-panel h2 { max-width: 75%; }
+.prompt-guidance { max-width: 34rem; margin: 0.75rem 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
 .prompt-panel form { display: grid; gap: 0.75rem; margin-top: 1.25rem; }
 .prompt-panel textarea {
   width: 100%; min-height: 8rem; resize: vertical; padding: 1rem;
@@ -183,6 +185,10 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 .prompt-panel textarea:focus { border-color: var(--acid); box-shadow: 0 0 0 3px rgba(215,255,67,0.1); }
 .prompt-timer { position: absolute; top: 1.25rem; right: 1.25rem; color: var(--acid); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 1.8rem; }
 .saved-message { margin: 1rem 0 0; color: #b5c481; font-size: 0.85rem; }
+.tuning-panel { border-color: #676a43; }
+.repair-result { margin: 0.8rem 0 0; color: var(--acid); font-size: 0.85rem; }
+.repair-result--missed { color: #f7c948; }
+.round-finished-panel { min-height: 12rem; }
 .status-panel { display: grid; place-items: center; min-height: 18rem; text-align: center; }
 .status-panel p { color: var(--muted); }
 .waiting-panel { align-content: center; }

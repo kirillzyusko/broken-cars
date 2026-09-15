@@ -5,14 +5,24 @@ import { createServer } from "node:http";
 import express from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import { GameEngine } from "./game-engine.js";
-import { getSelectorName, selectDefects } from "./defects.js";
+import { getSelectorName, selectDefects, selectRepairs } from "./defects.js";
 
 const isProduction = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT || 3001);
 const app = express();
 const server = createServer(app);
 const sockets = new WebSocketServer({ server, path: "/ws", maxPayload: 32 * 1024 });
-const engine = new GameEngine();
+function durationFromEnvironment(name) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+const engine = new GameEngine({
+  buildDurationMs: durationFromEnvironment("BUILD_DURATION_MS"),
+  tuningDurationMs: durationFromEnvironment("TUNING_DURATION_MS"),
+  startCountdownMs: durationFromEnvironment("START_COUNTDOWN_MS"),
+  maxRaceDurationMs: durationFromEnvironment("MAX_RACE_DURATION_MS"),
+});
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 app.use(express.json({ limit: "32kb" }));
@@ -114,6 +124,9 @@ sockets.on("connection", (socket) => {
       if (message.type === "submit_prompt" && role === "player") {
         engine.submitPrompt(roomId, playerId, message.prompt);
         broadcast(roomId);
+      } else if (message.type === "submit_tuning_prompt" && role === "player") {
+        engine.submitTuningPrompt(roomId, playerId, message.prompt);
+        broadcast(roomId);
       } else if (message.type === "controls" && role === "player") {
         engine.setControls(roomId, playerId, message.controls ?? {});
       } else if (message.type === "start_prompting" && role === "host") {
@@ -125,6 +138,20 @@ sockets.on("connection", (socket) => {
         const startPromise = engine.startRoom(roomId, message.hostToken, selectDefects);
         broadcast(roomId);
         await startPromise;
+        broadcast(roomId);
+      } else if (message.type === "start_tuning" && role === "host") {
+        engine.startTuning(roomId, message.hostToken);
+        broadcast(roomId);
+      } else if (message.type === "start_next_race" && role === "host") {
+        const room = engine.requireRoom(roomId);
+        engine.assertHost(room, message.hostToken);
+        const repairPromise = engine.startNextRace(
+          roomId,
+          message.hostToken,
+          selectRepairs,
+        );
+        broadcast(roomId);
+        await repairPromise;
         broadcast(roomId);
       }
     } catch (error) {
@@ -148,7 +175,7 @@ const simulation = setInterval(() => {
 
 const lobbyUpdates = setInterval(() => {
   for (const room of engine.rooms.values()) {
-    if (["waiting", "prompting", "assigning", "countdown"].includes(room.phase)) {
+    if (["waiting", "prompting", "assigning", "tuning", "repairing", "countdown"].includes(room.phase)) {
       broadcast(room.id);
     }
   }

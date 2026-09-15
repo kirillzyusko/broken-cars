@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { DEFECTS } from "./defects.js";
+import { DEFECTS, isGenericRepairRequest } from "./defects.js";
 
 export const TRACK_LENGTH_METERS = 500;
 export const BUILD_DURATION_MS = 60_000;
+export const TUNING_DURATION_MS = 60_000;
 export const START_COUNTDOWN_MS = 3_000;
 export const MAX_RACE_DURATION_MS = 90_000;
 
@@ -49,9 +50,53 @@ function createCar(player, index, defectIds) {
     speed: 0,
     lane: 0,
     heat: 0,
+    acceleratorStuck: false,
+    oneWayTurn: defectIds.includes("one_way_steering")
+      ? (index % 2 === 0 ? "left" : "right")
+      : null,
+    enginePowerIssue: defectIds.includes("bad_engine_power")
+      ? (index % 2 === 0 ? "weak" : "overpowered")
+      : null,
     finishedAtMs: null,
     rank: null,
   };
+}
+
+function resetCarForRace(car) {
+  car.distance = 0;
+  car.speed = 0;
+  car.lane = 0;
+  car.heat = 0;
+  car.acceleratorStuck = false;
+  car.finishedAtMs = null;
+  car.rank = null;
+  if (!car.defectIds.includes("one_way_steering")) car.oneWayTurn = null;
+  if (!car.defectIds.includes("bad_engine_power")) car.enginePowerIssue = null;
+}
+
+function publicDefect(car, id) {
+  const defect = DEFECT_MAP.get(id);
+  if (id === "one_way_steering") {
+    return {
+      ...defect,
+      label: `Can only turn ${car.oneWayTurn}`,
+      description: `The car ignores every attempt to turn ${car.oneWayTurn === "left" ? "right" : "left"}.`,
+    };
+  }
+  if (id === "bad_engine_power") {
+    return car.enginePowerIssue === "weak"
+      ? {
+          ...defect,
+          label: "Engine is too weak",
+          description: "The engine struggles to build speed.",
+        }
+      : {
+          ...defect,
+          label: "Engine is too powerful",
+          description: "Acceleration is violent and makes the car unstable.",
+        };
+  }
+  return defect;
 }
 
 function advanceCar(player, dt, raceElapsedMs) {
@@ -59,11 +104,29 @@ function advanceCar(player, dt, raceElapsedMs) {
   if (!car || car.finishedAtMs !== null) return;
 
   const defects = new Set(car.defectIds);
-  const steerInput = (controls.right ? 1 : 0) - (controls.left ? 1 : 0);
+  let acceleratePressed = controls.accelerate;
+  let brakePressed = controls.brake;
+  if (defects.has("swapped_pedals")) {
+    [acceleratePressed, brakePressed] = [brakePressed, acceleratePressed];
+  }
+  if (defects.has("stuck_accelerator") && acceleratePressed) {
+    car.acceleratorStuck = true;
+  }
+  const wantsAcceleration = acceleratePressed || car.acceleratorStuck;
+
+  let steerInput = (controls.right ? 1 : 0) - (controls.left ? 1 : 0);
+  if (defects.has("reversed_steering")) steerInput *= -1;
+  if (
+    defects.has("one_way_steering")
+    && ((car.oneWayTurn === "left" && steerInput > 0)
+      || (car.oneWayTurn === "right" && steerInput < 0))
+  ) {
+    steerInput = 0;
+  }
   const canSteer = !defects.has("no_steering");
   const steering = canSteer ? steerInput : 0;
 
-  let acceleration = controls.accelerate ? 14 : 0;
+  let acceleration = wantsAcceleration ? 14 : 0;
   let maxSpeed = 44;
   let rollingDrag = 2.4;
 
@@ -81,12 +144,30 @@ function advanceCar(player, dt, raceElapsedMs) {
   if (defects.has("loose_wheel")) {
     maxSpeed *= 0.86;
   }
+  if (defects.has("sideways_wheels")) {
+    acceleration *= 0.34;
+    maxSpeed = Math.min(maxSpeed, 12);
+    rollingDrag += 4.5;
+  }
+  if (defects.has("bad_engine_power")) {
+    if (car.enginePowerIssue === "weak") {
+      acceleration *= 0.32;
+      maxSpeed = Math.min(maxSpeed, 17);
+    } else {
+      acceleration *= 2.15;
+      maxSpeed = Math.max(maxSpeed, 58);
+    }
+  }
+  if (defects.has("no_grip")) {
+    acceleration *= 0.82;
+    rollingDrag *= 0.45;
+  }
   if (defects.has("no_seatbelt") && steering !== 0 && car.speed > 18) {
     acceleration *= 0.28;
   }
 
   if (defects.has("no_cooling")) {
-    const heatDelta = controls.accelerate ? 0.17 * dt : -0.1 * dt;
+    const heatDelta = wantsAcceleration ? 0.17 * dt : -0.1 * dt;
     car.heat = clamp(car.heat + heatDelta, 0, 1);
     if (car.heat > 0.65) {
       acceleration *= Math.max(0.08, 1 - (car.heat - 0.65) * 2.4);
@@ -95,7 +176,7 @@ function advanceCar(player, dt, raceElapsedMs) {
     car.heat = Math.max(0, car.heat - 0.25 * dt);
   }
 
-  const braking = controls.brake && !defects.has("no_brakes") ? 22 : 0;
+  const braking = brakePressed && !defects.has("no_brakes") ? 22 : 0;
   const drag = car.speed > 0 ? rollingDrag : 0;
   car.speed = clamp(car.speed + (acceleration - braking - drag) * dt, 0, maxSpeed);
 
@@ -103,8 +184,24 @@ function advanceCar(player, dt, raceElapsedMs) {
   if (defects.has("loose_wheel") && car.speed > 4) {
     laneVelocity += Math.sin(raceElapsedMs / 180) * (car.speed / 80);
   }
+  if (defects.has("no_grip") && car.speed > 3) {
+    laneVelocity = steering * (1.2 + car.speed / 28)
+      + Math.sin(raceElapsedMs / 240) * (car.speed / 38);
+  }
+  if (
+    defects.has("bad_engine_power")
+    && car.enginePowerIssue === "overpowered"
+    && wantsAcceleration
+  ) {
+    laneVelocity += Math.sin(raceElapsedMs / 95) * (car.speed / 65);
+  }
   car.lane = clamp(car.lane + laneVelocity * dt, -1, 1);
-  car.distance = Math.min(TRACK_LENGTH_METERS, car.distance + car.speed * dt);
+  const driveDirection = defects.has("backwards_engine") ? -1 : 1;
+  car.distance = clamp(
+    car.distance + car.speed * dt * driveDirection,
+    0,
+    TRACK_LENGTH_METERS,
+  );
 }
 
 function publicPlayer(player, viewerPlayerId) {
@@ -114,21 +211,34 @@ function publicPlayer(player, viewerPlayerId) {
     name: player.name,
     connected: player.connected,
     hasPrompt: Boolean(player.prompt),
+    hasTuningPrompt: Boolean(player.tuningPrompt),
+    lastRepair: player.lastRepairId ? DEFECT_MAP.get(player.lastRepairId) : null,
     car: player.car
       ? {
           ...player.car,
           name: isOwner ? player.car.name : `${player.name}'s car`,
-          defects: player.car.defectIds.map((id) => DEFECT_MAP.get(id)),
+          defects: player.car.defectIds.map((id) => publicDefect(player.car, id)),
         }
       : null,
   };
-  if (isOwner) snapshot.prompt = player.prompt;
+  if (isOwner) {
+    snapshot.prompt = player.prompt;
+    snapshot.tuningPrompt = player.tuningPrompt;
+  }
   return snapshot;
 }
 
 export class GameEngine {
-  constructor({ buildDurationMs = BUILD_DURATION_MS } = {}) {
+  constructor({
+    buildDurationMs = BUILD_DURATION_MS,
+    tuningDurationMs = TUNING_DURATION_MS,
+    startCountdownMs = START_COUNTDOWN_MS,
+    maxRaceDurationMs = MAX_RACE_DURATION_MS,
+  } = {}) {
     this.buildDurationMs = buildDurationMs;
+    this.tuningDurationMs = tuningDurationMs;
+    this.startCountdownMs = startCountdownMs;
+    this.maxRaceDurationMs = maxRaceDurationMs;
     this.rooms = new Map();
   }
 
@@ -142,9 +252,11 @@ export class GameEngine {
       phase: "waiting",
       createdAt: now,
       promptDeadline: null,
+      tuningDeadline: null,
       startsAt: null,
       raceEndsAt: null,
       lastTickAt: null,
+      roundNumber: 0,
       players: new Map(),
       finishers: [],
     };
@@ -184,6 +296,8 @@ export class GameEngine {
         name: `Driver ${room.players.size + 1}`,
         connected: true,
         prompt: "",
+        tuningPrompt: "",
+        lastRepairId: null,
         controls: { ...EMPTY_CONTROLS },
         car: null,
       };
@@ -254,15 +368,99 @@ export class GameEngine {
 
     racers.forEach((player, index) => {
       const defectIds = assignments[player.id];
-      if (!Array.isArray(defectIds) || defectIds.length === 0) {
-        throw new Error(`No broken parts were assigned to ${player.name}.`);
+      if (!Array.isArray(defectIds) || defectIds.length < 3 || defectIds.length > 4) {
+        throw new Error(`Exactly three or four broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
       player.controls = { ...EMPTY_CONTROLS };
+      player.tuningPrompt = "";
+      player.lastRepairId = null;
     });
 
-    room.startsAt = Date.now() + START_COUNTDOWN_MS;
-    room.raceEndsAt = room.startsAt + MAX_RACE_DURATION_MS;
+    room.roundNumber = 1;
+    room.finishers = [];
+    room.startsAt = now + this.startCountdownMs;
+    room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
+    room.lastTickAt = room.startsAt;
+    room.phase = "countdown";
+    return room;
+  }
+
+  startTuning(roomId, hostToken, now = Date.now()) {
+    const room = this.requireRoom(roomId);
+    this.assertHost(room, hostToken);
+    if (room.phase !== "finished") throw new Error("Finish the current ride first.");
+    const racers = [...room.players.values()].filter((player) => player.car);
+    if (racers.every((player) => player.car.defectIds.length === 0)) {
+      throw new Error("Every car is already fully tuned.");
+    }
+
+    room.phase = "tuning";
+    room.tuningDeadline = now + this.tuningDurationMs;
+    for (const player of racers) {
+      player.tuningPrompt = "";
+      player.lastRepairId = null;
+    }
+    return room;
+  }
+
+  submitTuningPrompt(roomId, clientId, prompt, now = Date.now()) {
+    const room = this.requireRoom(roomId);
+    const player = room.players.get(clientId);
+    if (!player?.car) throw new Error("Join a race before tuning a car.");
+    if (room.phase !== "tuning" || now >= room.tuningDeadline) {
+      throw new Error("The tuning window is closed.");
+    }
+    if (player.car.defectIds.length === 0) {
+      throw new Error("Your car has no defects left to repair.");
+    }
+    if (typeof prompt !== "string" || !prompt.trim()) {
+      throw new Error("Describe one specific defect you noticed.");
+    }
+    player.tuningPrompt = prompt.trim().slice(0, 160);
+    return player;
+  }
+
+  async startNextRace(roomId, hostToken, repairSelector, now = Date.now()) {
+    const room = this.requireRoom(roomId);
+    this.assertHost(room, hostToken);
+    if (room.phase !== "tuning") throw new Error("The tuning round is not active.");
+    if (now < room.tuningDeadline) throw new Error("The tuning minute is not over yet.");
+
+    const racers = [...room.players.values()].filter((player) => player.car);
+    room.phase = "repairing";
+    let repairs;
+    try {
+      repairs = await repairSelector(racers.map((player) => ({
+        id: player.id,
+        tuningPrompt: player.tuningPrompt,
+        defectIds: [...player.car.defectIds],
+      })));
+    } catch (error) {
+      room.phase = "tuning";
+      throw error;
+    }
+
+    for (const player of racers) {
+      const repairedId = repairs[player.id];
+      player.lastRepairId = !isGenericRepairRequest(player.tuningPrompt)
+        && typeof repairedId === "string"
+        && player.car.defectIds.includes(repairedId)
+        ? repairedId
+        : null;
+      if (player.lastRepairId) {
+        player.car.defectIds = player.car.defectIds.filter(
+          (id) => id !== player.lastRepairId,
+        );
+      }
+      player.controls = { ...EMPTY_CONTROLS };
+      resetCarForRace(player.car);
+    }
+
+    room.roundNumber += 1;
+    room.finishers = [];
+    room.startsAt = now + this.startCountdownMs;
+    room.raceEndsAt = room.startsAt + this.maxRaceDurationMs;
     room.lastTickAt = room.startsAt;
     room.phase = "countdown";
     return room;
@@ -334,15 +532,17 @@ export class GameEngine {
     viewerPlayerId = null,
   ) {
     return {
-      protocolVersion: 2,
+      protocolVersion: 3,
       id: room.id,
       phase: room.phase,
       serverNow: now,
       promptDeadline: room.promptDeadline,
+      tuningDeadline: room.tuningDeadline,
       startsAt: room.startsAt,
       raceEndsAt: room.raceEndsAt,
       trackLength: TRACK_LENGTH_METERS,
       selectorName,
+      roundNumber: room.roundNumber,
       finishers: [...room.finishers],
       players: [...room.players.values()].map((player) =>
         publicPlayer(player, viewerPlayerId)),

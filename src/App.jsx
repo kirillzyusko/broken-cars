@@ -42,6 +42,8 @@ function PhasePill({ phase, connection }) {
     waiting: "waiting room",
     prompting: "building",
     assigning: "breaking cars",
+    tuning: "tuning",
+    repairing: "repairing",
     countdown: "countdown",
     racing: "racing",
     finished: "finished",
@@ -161,6 +163,9 @@ function Leaderboard({ room, currentPlayerId }) {
 
 function DefectList({ car }) {
   if (!car) return null;
+  if (car.defects.length === 0) {
+    return <p className="fully-tuned">✓ No defects left</p>;
+  }
   return (
     <div className="defect-list">
       {car.defects.map((defect) => (
@@ -182,22 +187,51 @@ function Host({ roomId }) {
     role: "host",
     hostToken,
   });
-  const localNow = useNow(room?.phase === "prompting" || room?.phase === "countdown");
+  const localNow = useNow(
+    room?.phase === "prompting"
+    || room?.phase === "tuning"
+    || room?.phase === "countdown",
+  );
   const now = estimatedServerNow(room, localNow);
-  const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
+  const remaining = room?.phase === "tuning"
+    ? (room?.tuningDeadline ?? 0) - now
+    : (room?.promptDeadline ?? 0) - now;
   const readyPlayers = room?.players.filter((player) => player.hasPrompt).length ?? 0;
-  const playerCount = room?.players.length ?? 0;
+  const tuningPlayers = room?.players.filter((player) => player.hasTuningPrompt).length ?? 0;
   const connectedCount = room?.players.filter((player) => player.connected).length ?? 0;
   const canStartBuild = room?.phase === "waiting" && connectedCount > 0;
   const canStartRace = room?.phase === "prompting" && remaining <= 0 && readyPlayers > 0;
+  const canStartTuning = room?.phase === "finished"
+    && room.players.some((player) => player.car?.defects.length > 0);
+  const canStartNextRace = room?.phase === "tuning" && remaining <= 0;
   const isWaiting = room?.phase === "waiting";
+  const isBusy = room?.phase === "assigning" || room?.phase === "repairing";
+
+  const hostAction = (() => {
+    if (isWaiting) return { label: "Start 1-minute car build", disabled: !canStartBuild };
+    if (room?.phase === "prompting") return { label: "Start ride", disabled: !canStartRace };
+    if (room?.phase === "finished") {
+      return canStartTuning
+        ? { label: "Start 1-minute tuning", disabled: false }
+        : { label: "All cars are fully tuned", disabled: true };
+    }
+    if (room?.phase === "tuning") {
+      return { label: "Apply repairs & start next ride", disabled: !canStartNextRace };
+    }
+    if (isBusy) {
+      return {
+        label: room?.phase === "assigning" ? "Breaking cars…" : "Applying repairs…",
+        disabled: true,
+      };
+    }
+    return { label: "Ride in progress", disabled: true };
+  })();
 
   function triggerHostAction() {
-    if (isWaiting) {
-      send({ type: "start_prompting", hostToken });
-      return;
-    }
-    send({ type: "start_race", hostToken });
+    if (isWaiting) send({ type: "start_prompting", hostToken });
+    else if (room?.phase === "prompting") send({ type: "start_race", hostToken });
+    else if (room?.phase === "finished") send({ type: "start_tuning", hostToken });
+    else if (room?.phase === "tuning") send({ type: "start_next_race", hostToken });
   }
 
   if (!hostToken) {
@@ -243,15 +277,23 @@ function Host({ roomId }) {
         </section>
 
         <section className="panel timer-panel">
-          <p className="eyebrow">{isWaiting ? "Waiting room" : "Prompt window"}</p>
+          <p className="eyebrow">
+            {isWaiting
+              ? "Waiting room"
+              : room?.phase === "tuning"
+                ? `Tuning round · before ride ${room.roundNumber + 1}`
+                : `Ride ${Math.max(1, room?.roundNumber ?? 1)}`}
+          </p>
           <div className="big-timer">
             {isWaiting
               ? "WAIT"
-              : room?.phase === "prompting"
+              : room?.phase === "prompting" || room?.phase === "tuning"
                 ? formatSeconds(remaining)
-                : room?.phase === "assigning"
+                : isBusy
                   ? "AI"
-                  : "GO"}
+                  : room?.phase === "finished"
+                    ? "PIT"
+                    : "GO"}
           </div>
           <p className="muted">
             {isWaiting
@@ -264,19 +306,21 @@ function Host({ roomId }) {
                   ? "Build time is over. Start the ride when ready."
                   : room?.phase === "prompting"
                     ? "Build time is over. No cars were submitted."
-                    : "The garage is locked."}
+                    : room?.phase === "tuning" && remaining > 0
+                      ? `${tuningPlayers} drivers have submitted one problem to repair.`
+                      : room?.phase === "tuning"
+                        ? "Tuning time is over. Apply at most one repair per car."
+                        : room?.phase === "finished"
+                          ? "The ride is over. Start a tuning round when everyone is ready."
+                          : "The garage is locked."}
           </p>
           <button
             className="primary-button"
             type="button"
-            disabled={isWaiting ? !canStartBuild : !canStartRace}
+            disabled={hostAction.disabled}
             onClick={triggerHostAction}
           >
-            {isWaiting
-              ? "Start 1-minute car build"
-              : room?.phase === "assigning"
-                ? "Breaking cars…"
-                : "Start ride"}
+            {hostAction.label}
           </button>
           <small>Defect selector: {room?.selectorName ?? "—"}</small>
         </section>
@@ -288,7 +332,13 @@ function Host({ roomId }) {
             <p className="eyebrow">Drivers</p>
             <h2>{connectedCount} connected</h2>
           </div>
-          <span>{isWaiting ? "Waiting room open" : `${readyPlayers} cars ready`}</span>
+          <span>
+            {isWaiting
+              ? "Waiting room open"
+              : room?.phase === "tuning"
+                ? `${tuningPlayers} repair reports ready`
+                : `${readyPlayers} cars ready`}
+          </span>
         </div>
         <div className="player-grid">
           {room?.players.map((player) => (
@@ -300,7 +350,13 @@ function Host({ roomId }) {
               <p>
                 {isWaiting
                   ? "Ready in the waiting room"
-                  : player.hasPrompt
+                  : room?.phase === "tuning"
+                    ? player.hasTuningPrompt
+                      ? "Repair report submitted ✓"
+                      : player.car?.defects.length === 0
+                        ? "Fully tuned"
+                        : "Diagnosing one problem…"
+                    : player.hasPrompt
                     ? "Car submitted ✓"
                     : room?.phase === "prompting"
                       ? "Building a car…"
@@ -365,13 +421,22 @@ function Player({ roomId }) {
     clientId: playerId,
   });
   const [prompt, setPrompt] = useState("");
+  const [tuningPrompt, setTuningPrompt] = useState("");
   const [controls, setControls] = useState(EMPTY_CONTROLS);
   const controlsRef = useRef(EMPTY_CONTROLS);
-  const localNow = useNow(room?.phase === "prompting" || room?.phase === "countdown");
+  const localNow = useNow(
+    room?.phase === "prompting"
+    || room?.phase === "tuning"
+    || room?.phase === "countdown",
+  );
   const now = estimatedServerNow(room, localNow);
   const me = room?.players.find((player) => player.id === playerId);
   const remaining = room?.promptDeadline ? room.promptDeadline - now : 0;
+  const tuningRemaining = room?.tuningDeadline ? room.tuningDeadline - now : 0;
   const promptOpen = room?.phase === "prompting" && remaining > 0;
+  const tuningOpen = room?.phase === "tuning"
+    && tuningRemaining > 0
+    && (me?.car?.defects.length ?? 0) > 0;
   const canDrive = room?.phase === "countdown" || room?.phase === "racing";
   const connectedPlayers = room?.players.filter((player) => player.connected).length ?? 0;
 
@@ -430,6 +495,12 @@ function Player({ roomId }) {
     send({ type: "submit_prompt", prompt });
   }
 
+  function submitTuningPrompt(event) {
+    event.preventDefault();
+    if (!tuningPrompt.trim()) return;
+    send({ type: "submit_tuning_prompt", prompt: tuningPrompt });
+  }
+
   return (
     <main className="controller-shell">
       <header className="topbar compact-topbar">
@@ -464,12 +535,16 @@ function Player({ roomId }) {
           <div className="prompt-timer">{formatSeconds(remaining)}s</div>
           <p className="eyebrow">Build your dream car</p>
           <h2>What do you want to drive?</h2>
+          <p className="prompt-guidance">
+            Include must-have details and say what must not be broken. For example:
+            “A red rally car with round wheels — keep the wheels round.”
+          </p>
           <form onSubmit={submitPrompt}>
             <textarea
               value={prompt}
               disabled={!promptOpen}
               maxLength={160}
-              placeholder="A tiny neon rally car with a giant spoiler…"
+              placeholder="A tiny neon rally car with round wheels. Keep the wheels round…"
               onChange={(event) => setPrompt(event.target.value)}
               autoFocus
             />
@@ -490,10 +565,60 @@ function Player({ roomId }) {
         </section>
       ) : null}
 
+      {room?.phase === "repairing" ? (
+        <section className="panel status-panel">
+          <div className="spinner" />
+          <h2>The mechanic is checking reports</h2>
+          <p>Each car can receive at most one concrete repair.</p>
+        </section>
+      ) : null}
+
+      {room?.phase === "tuning" ? (
+        <section className="panel prompt-panel tuning-panel">
+          <div className="prompt-timer">{formatSeconds(tuningRemaining)}s</div>
+          <p className="eyebrow">Tune one thing</p>
+          <h2>Which exact problem did you notice?</h2>
+          <p className="prompt-guidance">
+            Report one concrete symptom, for example “the steering is reversed” or
+            “it slides like ice”. “Make it fully working” repairs nothing.
+          </p>
+          <form onSubmit={submitTuningPrompt}>
+            <textarea
+              value={tuningPrompt}
+              disabled={!tuningOpen}
+              maxLength={160}
+              placeholder="The steering is reversed…"
+              onChange={(event) => setTuningPrompt(event.target.value)}
+              autoFocus
+            />
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={!tuningOpen || !tuningPrompt.trim()}
+            >
+              {me?.hasTuningPrompt ? "Update repair report" : "Submit one repair"}
+            </button>
+          </form>
+          {me?.hasTuningPrompt ? (
+            <p className="saved-message">✓ Saved privately: {me.tuningPrompt}</p>
+          ) : null}
+          {!tuningOpen && me?.car?.defects.length > 0 ? (
+            <p className="saved-message">Tuning time is over. Waiting for the host.</p>
+          ) : null}
+        </section>
+      ) : null}
+
       {me?.car ? (
         <section className="panel my-car-panel" style={{ borderColor: me.car.color }}>
           <p className="eyebrow">Your ride</p>
           <h2>{me.car.name}</h2>
+          {me.lastRepair ? (
+            <p className="repair-result">✓ Repaired this round: {me.lastRepair.label}</p>
+          ) : room?.roundNumber > 1 && room?.phase !== "tuning" ? (
+            <p className="repair-result repair-result--missed">
+              No repair applied — report one specific defect next round.
+            </p>
+          ) : null}
           <DefectList car={me.car} />
           {me.car.heat > 0 ? (
             <div className="heat-meter">
@@ -522,6 +647,14 @@ function Player({ roomId }) {
               <span>Gas</span><strong>▲</strong>
             </ControllerButton>
           </div>
+        </section>
+      ) : null}
+
+      {room?.phase === "finished" && me?.car?.defects.length > 0 ? (
+        <section className="panel status-panel round-finished-panel">
+          <p className="eyebrow">Ride {room.roundNumber} complete</p>
+          <h2>Remember one problem</h2>
+          <p>The host will open the tuning round. You can repair one defect next.</p>
         </section>
       ) : null}
 
