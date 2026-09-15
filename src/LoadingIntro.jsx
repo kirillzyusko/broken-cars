@@ -50,7 +50,6 @@ export default function LoadingIntro({ preview = false, reducedMotion = false, o
         {!reducedMotion && (preview || needsSound) && <button type="button" onClick={replay}>
           {needsSound ? "Play with sound" : "Replay with sound"}
         </button>}
-        {!preview && <button type="button" onClick={onFinish} autoFocus>Skip intro</button>}
       </div>
     </div>
   </div>;

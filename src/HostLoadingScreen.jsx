@@ -27,12 +27,7 @@ export default function HostLoadingScreen({ children }) {
     if (!visible) return;
     // A blocked or stalled video must not keep the host out of the game.
     const timeout = window.setTimeout(finish, reducedMotion ? 6000 : 12000);
-    const escape = (event) => { if (event.key === "Escape") finish(); };
-    window.addEventListener("keydown", escape);
-    return () => {
-      window.clearTimeout(timeout);
-      window.removeEventListener("keydown", escape);
-    };
+    return () => window.clearTimeout(timeout);
   }, [visible, reducedMotion, finish]);
 
   return <>
