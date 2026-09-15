@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { GAME_NAME } from "../config.js";
-import { IDENTITIES, IDENTITY_BY_KEY, freeIdentities } from "../lib/identity.js";
-import { Avatar, Pill, StickerButton } from "../components/primitives.jsx";
+import MenuMapBackground from "../MenuMapBackground.jsx";
+import { IDENTITIES, freeIdentities } from "../lib/identity.js";
+import { StickerButton } from "../components/primitives.jsx";
 
 const NAME_KEY = "broken-cars:name";
 const MAX_NAME_LENGTH = 16;
@@ -22,8 +23,6 @@ export function ClaimSeatScreen({ room, roomId, me, onJoin }) {
   const free = freeIdentities(room, me.id);
   const freeKeys = new Set(free.map((identity) => identity.key));
   const chosen = picked && freeKeys.has(picked) ? picked : (free[0]?.key ?? null);
-  const identity = chosen ? IDENTITY_BY_KEY[chosen] : me.identity;
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
   const ready = name.trim().length > 0;
 
   // If the server rejected the claim the parent never switches screens, so
@@ -48,11 +47,10 @@ export function ClaimSeatScreen({ room, roomId, me, onJoin }) {
   }
 
   return (
-    <main className="ph-screen ph-screen--sky ph-join">
-      <div className="ph-ground" aria-hidden="true" />
+    <main className="ph-screen ph-join" aria-label={`Join room ${roomId}`}>
+      <div className="menu-map-layer"><MenuMapBackground /></div>
       <div className="ph-join__head">
-        <Pill tone="red" className="ph-pill">Room {roomId}</Pill>
-        <h1 className="ph-join__wordmark">{GAME_NAME}</h1>
+        <h1 className="ph-join__wordmark"><img src="/images/game-logo.svg" alt={GAME_NAME} width="642" height="55" /></h1>
       </div>
 
       <form className="ph-join__form" onSubmit={submit}>
@@ -64,11 +62,10 @@ export function ClaimSeatScreen({ room, roomId, me, onJoin }) {
             type="text"
             value={name}
             maxLength={MAX_NAME_LENGTH}
-            placeholder="Denise"
+            placeholder="Your name"
             autoComplete="nickname"
             autoCapitalize="words"
             enterKeyHint="done"
-            autoFocus
             onChange={(event) => setName(event.target.value)}
           />
         </div>
@@ -98,20 +95,10 @@ export function ClaimSeatScreen({ room, roomId, me, onJoin }) {
           </div>
         </div>
 
-        <div className="ph-join__preview">
-          <Avatar identity={identity} size={62} fontSize={28} bob>{initial}</Avatar>
-          <span className="ph-join__preview-text">Your badge rides along on the TV cameras.</span>
-        </div>
-
         <div className="ph-join__bottom">
           <StickerButton className="ph-button" type="submit" disabled={!ready || sending}>
             {sending ? "JOINING…" : "JOIN THE RACE"}
           </StickerButton>
-          <p className="ph-join__hint">
-            Keep this open — it becomes
-            <br />
-            your controller.
-          </p>
         </div>
       </form>
     </main>
