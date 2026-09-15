@@ -89,7 +89,7 @@ function Home() {
     <main className="center-page">
       <section className="hero panel">
         <p className="eyebrow">Multiplayer party race</p>
-        <h1>Broken Cars</h1>
+        <h1>Funny Cars</h1>
         <p className="lede">
           Dream up the perfect car. Race it anyway.
         </p>
