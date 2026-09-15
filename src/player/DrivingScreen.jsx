@@ -211,12 +211,14 @@ export function DrivingScreen({ room, me, now, actions, onSceneReady }) {
 
       <div className="ph-drive__controls" aria-label="Kart controls">
         <div className="ph-pads">
+          {!car.defectIds?.includes("no_steering") && <>
           <Pad control="left" active={controls.left} onControl={updateControl}>
             <span className="ph-pad__arrow-left" aria-hidden="true" />
           </Pad>
           <Pad control="right" active={controls.right} onControl={updateControl}>
             <span className="ph-pad__arrow-right" aria-hidden="true" />
           </Pad>
+          </>}
           <Pad control="accelerate" active={controls.accelerate} onControl={updateControl} className="ph-pad--gas">
             <span className="ph-pad__gas">GAS</span>
           </Pad>
