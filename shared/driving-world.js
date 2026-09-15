@@ -49,7 +49,9 @@ export function createDrivingWorld(buffer) {
       for (let z = Math.floor(Math.min(start.z, end.z) / cellSize); z <= Math.floor(Math.max(start.z, end.z) / cellSize); z++) {
         for (const triangle of cells.get(`${x},${z}`) ?? []) {
           const { a, e, f, normal } = triangle;
-          if (groundOnly ? normal[1] < 0.55 : Math.abs(normal[1]) > 0.7) continue;
+          // Some exported curb tops have reversed winding. Collision triangles
+          // are two-sided, so either face can support the kart.
+          if (groundOnly ? Math.abs(normal[1]) < 0.55 : Math.abs(normal[1]) > 0.7) continue;
           const p = [direction[1] * f[2] - direction[2] * f[1], direction[2] * f[0] - direction[0] * f[2], direction[0] * f[1] - direction[1] * f[0]];
           const determinant = e[0] * p[0] + e[1] * p[1] + e[2] * p[2];
           if (Math.abs(determinant) < 1e-10) continue;
@@ -81,12 +83,14 @@ export function createGroundedMovement(raycast) {
       const length = Math.hypot(dx, dz);
       let hit = null;
       const angle = heading * Math.PI / 180;
+      const footprint = [];
       // Sweep the body perimeter at bumper height, including both side edges.
       for (const x of [-CAR_SIZE_WORLD.x / 2, 0, CAR_SIZE_WORLD.x / 2]) {
         for (const z of [-CAR_SIZE_WORLD.z / 2, 0, CAR_SIZE_WORLD.z / 2]) {
-          if (length < 1e-9) continue;
           const offsetX = Math.cos(angle) * x - Math.sin(angle) * z;
           const offsetZ = Math.sin(angle) * x + Math.cos(angle) * z;
+          footprint.push({ x: offsetX, z: offsetZ });
+          if (length < 1e-9) continue;
           const start = { x: previous.x + offsetX, y: previous.y + 0.02, z: previous.z + offsetZ };
           const next = raycast(start, { x: start.x + dx, y: start.y, z: start.z + dz });
           if (next && (!hit || next.fraction < hit.fraction)) hit = next;
@@ -94,10 +98,19 @@ export function createGroundedMovement(raycast) {
       }
       const amount = hit ? Math.max(0, hit.fraction - 0.02 / length) : 1;
       const position = { x: previous.x + dx * amount, y: previous.y, z: previous.z + dz * amount };
-      const ground = raycast({ ...position, y: previous.y - halfHeight + 0.2 }, { ...position, y: previous.y - halfHeight - 0.65 }, true);
+      // Keep the rigid kart above the highest support under its footprint.
+      // A centre-only ray drops the wheels through curbs when straddling grass.
+      let ground = null;
+      let centreGround = null;
+      for (const offset of footprint) {
+        const point = { x: position.x + offset.x, z: position.z + offset.z };
+        const support = raycast({ ...point, y: previous.y - halfHeight + 0.2 }, { ...point, y: previous.y - halfHeight - 0.65 }, true);
+        if (offset.x === 0 && offset.z === 0) centreGround = support;
+        if (support && (!ground || support.point.y > ground.point.y)) ground = support;
+      }
       if (!ground || ground.point.y < -0.6) return { recover: true };
       position.y = ground.point.y + halfHeight;
-      return { position, offRoad: !ground.road, hit };
+      return { position, offRoad: !(centreGround ?? ground).road, hit };
     },
   };
 }

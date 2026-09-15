@@ -125,6 +125,42 @@ test("the real exported map supports the grid and permits driving off the road",
   assert.equal(car.worldPosition.x, patch.x);
 });
 
+test("exported curb tops support the kart even when their triangles face downward", () => {
+  const world = getDrivingWorld();
+  for (const x of [-3.5, 3.5]) {
+    const curb = world.raycast({ x, y: 0.2, z: 8 }, { x, y: -0.6, z: 8 }, true);
+    assert.ok(curb && curb.point.y > 0.02 && curb.point.y < 0.04, "find the curb top, not the grass beneath it");
+    assert.ok(curb.normal.y > 0.99);
+  }
+});
+
+test("the whole kart clears the curb when its centre is on the grass or road", () => {
+  const world = getDrivingWorld();
+  const halfHeight = CAR_SIZE_WORLD.y / 2;
+  for (const side of [-1, 1]) for (const heading of [0, 45, 90]) {
+    let position = { x: side * 2.4, y: halfHeight, z: 8 };
+    // Cross the curb in both directions, then stop with wheels on the curb.
+    const path = Array.from({ length: 48 }, (_, i) => 2.4 + i * 0.05);
+    for (const x of [...path, ...path.toReversed(), 4.1]) {
+      const desired = { ...position, x: side * x };
+      const result = world.move(position, desired, heading);
+      assert.ok(!result.recover && !result.hit, "a low curb must remain driveable");
+      position = result.position;
+      const angle = heading * Math.PI / 180;
+      for (const localX of [-CAR_SIZE_WORLD.x / 2, 0, CAR_SIZE_WORLD.x / 2]) {
+        for (const localZ of [-CAR_SIZE_WORLD.z / 2, 0, CAR_SIZE_WORLD.z / 2]) {
+          const point = { x: position.x + Math.cos(angle) * localX - Math.sin(angle) * localZ,
+            z: position.z + Math.sin(angle) * localX + Math.cos(angle) * localZ };
+          const ground = world.raycast({ ...point, y: 1 }, { ...point, y: -0.6 }, true);
+          assert.ok(position.y - halfHeight >= ground.point.y - 1e-6, "no part of the footprint sinks into the curb");
+        }
+      }
+    }
+    const stopped = world.move(position, position, heading);
+    assert.ok(Math.abs(stopped.position.y - position.y) < 1e-6, "support must remain stable at rest");
+  }
+});
+
 test("server ticks and sandbox steps produce the same handling at different frame rates", async () => {
   const engine = new GameEngine({ buildDurationMs: 1, startCountdownMs: 0, drivingWorld: null });
   const room = engine.createRoom(0);
