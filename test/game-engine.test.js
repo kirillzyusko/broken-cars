@@ -63,10 +63,11 @@ test("host cannot start the build before a driver joins", () => {
   );
 });
 
-test("host cannot start early and invalid host credentials are rejected", async () => {
+test("host cannot start early while prompts are missing and invalid credentials are rejected", async () => {
   const engine = new GameEngine({ buildDurationMs: 100 });
   const room = engine.createRoom(1_000);
   engine.joinPlayer(room.id, "player-1", 1_010);
+  engine.joinPlayer(room.id, "player-2", 1_010);
   engine.startPrompting(room.id, room.hostToken, 1_020);
   engine.submitPrompt(room.id, "player-1", "Moon buggy", 1_020);
 

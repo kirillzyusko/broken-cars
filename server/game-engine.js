@@ -23,6 +23,11 @@ export const MAX_RACE_DURATION_MS = 180_000;
 export { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 export const CAR_MASS_KG = 1_000;
 
+export function allCarPromptsSubmitted(room) {
+  const players = [...room.players.values()];
+  return players.length > 0 && players.every((player) => !!player.prompt);
+}
+
 const CAR_RESTITUTION = 0.2;
 const CAR_CONTACT_FRICTION = 0.42;
 const OBSTACLE_RESTITUTION = 0.1;
@@ -718,7 +723,7 @@ export class GameEngine {
     const room = this.requireRoom(roomId);
     this.assertHost(room, hostToken);
     if (room.phase !== "prompting") throw new Error("The car build is not active.");
-    if (now < room.promptDeadline) throw new Error("The prompt minute is not over yet.");
+    if (now < room.promptDeadline && !allCarPromptsSubmitted(room)) throw new Error("The prompt minute is not over yet.");
 
     const racers = [...room.players.values()].filter((player) => player.prompt);
     if (racers.length === 0) throw new Error("At least one driver must submit a car.");

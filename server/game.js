@@ -1,5 +1,5 @@
 import { getSelectorName, selectDefects, selectRepairs } from "./defects.js";
-import { GameEngine } from "./game-engine.js";
+import { GameEngine, allCarPromptsSubmitted } from "./game-engine.js";
 
 export class BrokenCarsGame {
   constructor({
@@ -52,6 +52,12 @@ export class BrokenCarsGame {
 
   submitCarPrompt(roomId, playerId, prompt, now) {
     return this.engine.submitPrompt(roomId, playerId, prompt, now);
+  }
+
+  startRaceIfReady(roomId, now) {
+    const room = this.requireRoom(roomId);
+    if (room.phase !== "prompting" || !allCarPromptsSubmitted(room)) return null;
+    return this.startRace(roomId, room.hostToken, now);
   }
 
   startRace(roomId, hostToken, now) {

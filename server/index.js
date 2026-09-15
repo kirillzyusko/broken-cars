@@ -128,7 +128,12 @@ sockets.on("connection", (socket) => {
         broadcast(roomId);
       } else if (message.type === "submit_prompt" && role === "player") {
         game.submitCarPrompt(roomId, playerId, message.prompt);
+        const startPromise = game.startRaceIfReady(roomId);
         broadcast(roomId);
+        if (startPromise) {
+          await startPromise;
+          broadcast(roomId);
+        }
       } else if (message.type === "submit_tuning_prompt" && role === "player") {
         game.submitRepair(roomId, playerId, message.prompt);
         broadcast(roomId);
