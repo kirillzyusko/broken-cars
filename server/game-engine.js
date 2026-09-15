@@ -47,6 +47,11 @@ const EMPTY_CONTROLS = Object.freeze({
   drift: false,
 });
 const DEFECT_MAP = new Map(DEFECTS.map((defect) => [defect.id, defect]));
+const DEFECT_SEVERITY_ORDER = new Map([
+  ["fatal", 0],
+  ["critical", 1],
+  ["annoying", 2],
+]);
 
 function token(bytes = 18) {
   return randomBytes(bytes).toString("base64url");
@@ -77,11 +82,17 @@ function carColor(index) {
 function createCar(player, index, defectIds) {
   const driving = {};
   resetDriving(driving, index);
+  const orderedDefectIds = [...defectIds].sort((left, right) => (
+    (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(left)?.severity) ?? Number.MAX_SAFE_INTEGER)
+    - (DEFECT_SEVERITY_ORDER.get(DEFECT_MAP.get(right)?.severity) ?? Number.MAX_SAFE_INTEGER)
+  ));
+  const [activeDefectId, ...queuedDefectIds] = orderedDefectIds;
   return {
     ...driving,
     name: player.prompt,
     color: carColor(index),
-    defectIds,
+    defectIds: activeDefectId ? [activeDefectId] : [],
+    _queuedDefectIds: queuedDefectIds,
     distance: 0,
     speed: 0,
     velocityX: 0,
@@ -93,10 +104,10 @@ function createCar(player, index, defectIds) {
     massKg: CAR_MASS_KG,
     heat: 0,
     acceleratorStuck: false,
-    oneWayTurn: defectIds.includes("one_way_steering")
+    oneWayTurn: activeDefectId === "one_way_steering"
       ? (index % 2 === 0 ? "left" : "right")
       : null,
-    enginePowerIssue: defectIds.includes("bad_engine_power")
+    enginePowerIssue: activeDefectId === "bad_engine_power"
       ? (index % 2 === 0 ? "weak" : "overpowered")
       : null,
     collisionCount: 0,
@@ -106,6 +117,19 @@ function createCar(player, index, defectIds) {
     finishedAtMs: null,
     rank: null,
   };
+}
+
+function promoteNextDefect(car) {
+  if (car.defectIds.length > 0) return;
+  const nextDefectId = car._queuedDefectIds.shift();
+  if (!nextDefectId) return;
+  car.defectIds = [nextDefectId];
+  if (nextDefectId === "one_way_steering") {
+    car.oneWayTurn = car.spawnIndex % 2 === 0 ? "left" : "right";
+  }
+  if (nextDefectId === "bad_engine_power") {
+    car.enginePowerIssue = car.spawnIndex % 2 === 0 ? "weak" : "overpowered";
+  }
 }
 
 function resetCarForRace(car) {
@@ -521,6 +545,7 @@ function publicPlayer(player, viewerPlayerId) {
   const {
     _lastCollisionKey: _ignoredCollisionKey,
     _collisionCooldownUntilMs: _ignoredCollisionCooldown,
+    _queuedDefectIds: _ignoredQueuedDefectIds,
     ...publicCar
   } = player.car ?? {};
   const snapshot = {
@@ -721,8 +746,8 @@ export class GameEngine {
 
     racers.forEach((player, index) => {
       const defectIds = assignments[player.id];
-      if (!Array.isArray(defectIds) || defectIds.length !== 3) {
-        throw new Error(`Exactly three broken parts must be assigned to ${player.name}.`);
+      if (!Array.isArray(defectIds) || defectIds.length !== 4) {
+        throw new Error(`Exactly four broken parts must be assigned to ${player.name}.`);
       }
       player.car = createCar(player, index, defectIds);
       player.controls = { ...EMPTY_CONTROLS };
@@ -806,6 +831,7 @@ export class GameEngine {
       player.lastRepairId = player.lastRepairIds[0] ?? null;
       const repaired = new Set(player.lastRepairIds);
       player.car.defectIds = player.car.defectIds.filter((id) => !repaired.has(id));
+      promoteNextDefect(player.car);
       player.controls = { ...EMPTY_CONTROLS };
       resetCarForRace(player.car);
     }
