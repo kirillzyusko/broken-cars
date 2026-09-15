@@ -372,3 +372,24 @@
 
 .ph-done { gap: 18px; }
 .ph-done__points { font-family: var(--mono); font-size: 12px; color: var(--slate-mid); white-space: nowrap; }
+
+/* Portrait phone controller: the race stays on the host display. */
+.ph-controller { display: flex; flex-direction: column; gap: 12px; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); touch-action: none; }
+.ph-controller .ph-hud { position: static; flex-shrink: 0; order: 0; }
+.ph-controller .ph-hud__speed, .ph-controller .ph-hud__right { border: 0; background: none; padding: 0 6px; }
+.ph-controller .ph-drive__bubbles { position: static; transform: none; width: 100%; min-height: 42px; flex-shrink: 0; order: 1; }
+.ph-controller .ph-bubble__text { font-size: 13px; }
+.ph-controller .ph-drive__controls { position: static; min-height: 0; flex: 1; order: 2; display: flex; }
+.ph-controller .ph-pads { display: grid; grid-template-columns: 1fr 1fr 1.35fr; grid-template-rows: repeat(2, minmax(0, 1fr)); grid-template-areas: "left right gas" "left right brake"; gap: 12px; width: 100%; min-height: 0; }
+.ph-controller .ph-pad { width: 100%; height: 100%; min-height: 0; margin: 0; border: 2px solid #ffffff30; border-radius: 24px; background: #304451; font: 800 clamp(22px, 5dvh, 42px)/1 var(--display); }
+.ph-controller .ph-pad--left { grid-area: left; }
+.ph-controller .ph-pad--right { grid-area: right; }
+.ph-controller .ph-pad--gas { grid-area: gas; background: #31783b; align-items: center; padding: 0; }
+.ph-controller .ph-pad--brake { grid-area: brake; background: #ab3c31; }
+.ph-controller .ph-pad--active { filter: brightness(1.5); border-color: white; box-shadow: inset 0 0 0 3px #ffffff55; }
+.ph-controller .ph-pad__gas, .ph-controller .ph-pad__brake { font: inherit; }
+.ph-controller .ph-pad__arrow-left, .ph-controller .ph-pad__arrow-right { transform: scale(1.8); }
+@media (orientation: landscape) {
+  .ph-controller .ph-drive__bubbles { display: none; }
+  .ph-controller .ph-pads { grid-template-columns: 1fr 1fr 1.35fr; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+}
