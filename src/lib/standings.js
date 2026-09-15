@@ -1,4 +1,3 @@
-import { SESSION_ROUNDS } from "../config.js";
 import { decoratePlayers } from "./identity.js";
 
 export const POINTS_BY_RANK = Object.freeze([15, 12, 10, 8, 6, 5, 4, 3, 2, 1]);
@@ -76,15 +75,9 @@ export function allTuned(room) {
   return cars.length > 0 && cars.every((player) => player.car.defects.length === 0);
 }
 
-export function arcadeMode(room) {
-  return room?.defectsEnabled === false;
-}
-
-/** The session ends when nothing is left to fix, or after a set number of arcade sprints. */
+/** The session ends once nothing is left to fix. */
 export function sessionOver(room) {
-  if (!room || room.phase !== "finished") return false;
-  if (arcadeMode(room)) return room.roundNumber >= SESSION_ROUNDS;
-  return allTuned(room);
+  return !!room && room.phase === "finished" && allTuned(room);
 }
 
 export function windowClosed(room, now) {
