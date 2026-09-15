@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { IntroAudioContext } from "./intro-audio-context.js";
 
-export default function BackgroundMusic({ racing = false }) {
+export default function BackgroundMusic({ racing = false, showControl = true }) {
   const introPlaying = useContext(IntroAudioContext);
   const audioRef = useRef(null);
   const [muted, setMuted] = useState(() => {
@@ -39,6 +39,8 @@ export default function BackgroundMusic({ racing = false }) {
       audio.pause();
     };
   }, [muted, source, introPlaying]);
+
+  if (!showControl) return null;
 
   return (
     <button className="music-toggle" type="button" aria-label={muted ? "Enable background music" : "Mute background music"}

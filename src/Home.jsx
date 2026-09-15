@@ -2,7 +2,7 @@ import { useState } from "react";
 import BackgroundMusic from "./BackgroundMusic.jsx";
 import MenuMapBackground from "./MenuMapBackground.jsx";
 import { GAME_NAME } from "./config.js";
-import { Pill, StickerButton } from "./components/primitives.jsx";
+import { StickerButton } from "./components/primitives.jsx";
 
 export function Home() {
   const [creating, setCreating] = useState(false);
@@ -26,25 +26,17 @@ export function Home() {
 
   return (
     <main className="home">
-      <BackgroundMusic />
+      <BackgroundMusic showControl={false} />
       <MenuMapBackground />
       <div className="home__shade" aria-hidden="true" />
       <section className="home__card">
-        <Pill tone="red" className="home__pill">Party mode · phones vs. the garage</Pill>
-        <h1 className="home__wordmark">{GAME_NAME}</h1>
-        <p className="home__lede">
-          Describe a car. The garage builds it. Race it.
+        <h1 className="home__wordmark"><img src="/images/game-logo.svg" alt={GAME_NAME} width="642" height="55" /></h1>
+        <p className="home__lede" role={error ? "alert" : undefined}>
+          {error || "Describe a car. The garage builds it. Race it."}
         </p>
         <StickerButton className="home__button" type="button" onClick={createGame} disabled={creating}>
           {creating ? "OPENING THE GARAGE…" : "OPEN A ROOM"}
         </StickerButton>
-        {error ? <p className="home__error">{error}</p> : null}
-        <StickerButton as="a" tone="cream" className="home__explore" href="/map">EXPLORE CORSICA GP</StickerButton>
-        <p className="home__hint">
-          Put this screen on the TV.
-          <br />
-          Phones join by scanning the QR code.
-        </p>
       </section>
     </main>
   );

@@ -282,14 +282,16 @@ a { color: inherit; }
 /* ---------- Home (any screen size) ---------- */
 
 .home {
-  position: relative;
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 80px 24px;
-  overflow: hidden auto;
+  padding: clamp(12px, 4dvh, 40px) 24px;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--sky);
 }
 .home__map { position: absolute; inset: -18px; width: calc(100% + 36px); height: calc(100% + 36px); filter: blur(8px); pointer-events: none; opacity: 0; transition: opacity 1.2s ease; }
@@ -300,25 +302,19 @@ a { color: inherit; }
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 22px;
-  width: min(600px, 100%);
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 3dvh, 22px);
+  width: min(900px, 100%, 150dvh);
 }
-.home__pill { font-size: 13px; padding: 8px 16px; letter-spacing: 0.18em; }
 .home__wordmark {
-  font-family: var(--display);
-  font-weight: 800;
-  font-size: clamp(56px, 13vw, 128px);
-  line-height: 0.9;
-  letter-spacing: -0.03em;
-  color: var(--cream);
-  text-shadow: 5px 5px 0 var(--ink);
+  width: 70%;
+  margin: 0;
+  line-height: 0;
 }
+.home__wordmark img { display: block; width: 100%; height: auto; filter: invert(1) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)); }
 .home__lede { max-width: 30ch; font-size: clamp(18px, 2.4vw, 26px); font-weight: 600; line-height: 1.4; color: var(--cream); text-shadow: 0 2px 6px #142029; }
-.home__button { padding: 20px 30px; font-size: 26px; }
-.home__explore { padding: 14px 22px; font-size: 18px; }
-.home__hint { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; line-height: 1.7; color: var(--cream); text-shadow: 0 2px 6px #142029; }
-.home__error { font-weight: 800; color: var(--red); }
+.home__button { padding: clamp(12px, 3dvh, 20px) 30px; font-size: clamp(18px, 4dvh, 26px); }
 
 .simple-page {
   display: grid;
