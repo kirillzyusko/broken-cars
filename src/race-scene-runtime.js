@@ -1,4 +1,6 @@
 import * as pc from "playcanvas";
+import { createStartLights } from "./start-lights.js";
+import { raceStartSignal } from "../shared/race-start.js";
 import { createKartAudio } from "./kart-audio.js";
 import { updateKartCamera } from "./kart-camera.js";
 import { loadCorsicaMap, loadPhysics } from "./corsica-map.js";
@@ -33,6 +35,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     map: null, skybox: null, water: null, kartAssets: null, cameraPlaced: false,
     destroy() {
       scene.audio.dispose();
+      scene.startLights?.destroy();
       cameraFrame.destroy();
       app.scene.skybox = null;
       scene.skybox?.destroy();
@@ -47,6 +50,7 @@ export async function createRaceScene(canvas, { view, currentPlayerId, onStatus,
     if (isCancelled()) { scene.destroy(); return null; }
     scene.map = await loadCorsicaMap(app, isCancelled);
     if (isCancelled()) { scene.destroy(); return null; }
+    scene.startLights = createStartLights(scene.map.visual);
     scene.water = createRaceWater(app, scene.map.visual, scene.skybox);
     onStatus("Loading karts…");
     scene.kartAssets = await loadKartAssets(app, isCancelled);
@@ -162,6 +166,11 @@ function updateScene(scene, dt) {
     state.entity.setPosition(axle.x, axle.y, axle.z);
     state.entity.setEulerAngles(0, pose.yaw, 0);
   }
+  const start = scene.startClock;
+  const now = start ? start.serverNow + performance.now() - start.receivedAt : 0;
+  const signal = raceStartSignal(start?.startsAt, now);
+  scene.startLights?.update(signal);
+  scene.audio.startSignal(start?.id, signal);
   updateCamera(scene, dt);
   const cars = [...scene.carStates.values()].map((state) => ({ ...state.car, position: state.pose }));
   scene.audio.update(cars, scene.currentPlayerId, { yaw: scene.camera.getEulerAngles().y }, dt, scene.audioActive);

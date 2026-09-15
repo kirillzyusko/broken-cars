@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import RaceStartOverlay from "./RaceStartOverlay.jsx";
 import { createRaceScene, syncCars } from "./race-scene-runtime.js";
 import { raceCarsFromRoom } from "./race-scene-model.js";
 import { DRIVING_STEP, stepKart } from "../shared/kart-driving.js";
@@ -8,6 +9,7 @@ import track from "./corsica-track.json" with { type: "json" };
 
 export default function KartDriveTest() {
   const canvasRef = useRef(null);
+  const [startFrame, setStartFrame] = useState({ startsAt: null, now: 0 });
   useEffect(() => {
     let cancelled = false;
     let scene;
@@ -16,6 +18,15 @@ export default function KartDriveTest() {
     resetDriving(drive);
     let accumulator = 0;
     let drivingTime = 0;
+    let startClock;
+    let lastOverlayAt = 0;
+    const beginCountdown = () => {
+      const now = performance.now();
+      startClock = { startsAt: now + 5000, serverNow: now, receivedAt: now, id: `sandbox:${now}` };
+      if (scene) scene.startClock = startClock;
+      setStartFrame({ startsAt: startClock.startsAt, now });
+      lastOverlayAt = now;
+    };
     const supported = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyR"]);
     const clearKeys = () => keys.clear();
     const keyDown = (event) => {
@@ -28,6 +39,7 @@ export default function KartDriveTest() {
         accumulator = 0;
         if (scene) {
           scene.cameraPlaced = false;
+          beginCountdown();
         }
       }
     };
@@ -53,11 +65,24 @@ export default function KartDriveTest() {
       const world = createDrivingWorld(buffer);
       resize();
       publish();
+      beginCountdown();
       scene.updateDriving = (elapsed) => {
+        const now = performance.now();
+        if (lastOverlayAt <= startClock.startsAt + 1100 && now - lastOverlayAt >= 50) {
+          setStartFrame({ startsAt: startClock.startsAt, now });
+          lastOverlayAt = now;
+        }
         const throttle = keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0;
         const brake = keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0;
         const stop = keys.has("Space");
         const steering = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
+        if (now < startClock.startsAt) {
+          accumulator = 0;
+          drive.throttle = throttle;
+          drive.braking = false;
+          publish();
+          return;
+        }
         accumulator += Math.min(elapsed, 0.1);
         while (accumulator + 1e-9 >= DRIVING_STEP) {
           const previous = { ...drive.worldPosition };
@@ -85,6 +110,7 @@ export default function KartDriveTest() {
     };
   }, []);
   return <>
-    <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to reset." />
+    <canvas ref={canvasRef} className="map-graphics-test" aria-label="Kart driving test. W or up to accelerate, S or down to brake and reverse, Space to brake, A and D or arrow keys to steer, R to restart the countdown, H for horn, M to mute driving sounds." />
+    <RaceStartOverlay {...startFrame} />
   </>;
 }

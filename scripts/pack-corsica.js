@@ -49,6 +49,7 @@ for (const [key, cell] of cells) {
 }
 await visual.transform(prune());
 await io.write(new URL("visual.glb", output).pathname, visual);
+await import("./extract-start-lights.js");
 
 const collision = await io.read(new URL("collision.glb", source).pathname);
 await collision.transform(weld(), dedup(), prune());

@@ -92,6 +92,26 @@ export class KartAudioMixer {
     source.start();
   }
 
+  countdown(go) {
+    if (this.disposed || this.shots.size >= 16) return;
+    const source = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const panner = this.context.createStereoPanner();
+    const now = this.context.currentTime;
+    source.type = "sine";
+    source.frequency.value = go ? 880 : 440;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.24, now + 0.008);
+    gain.gain.setValueAtTime(0.24, now + (go ? 0.35 : 0.12));
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (go ? 0.6 : 0.22));
+    source.connect(gain).connect(panner).connect(this.master);
+    const shot = { source, gain, panner };
+    this.shots.add(shot);
+    source.onended = () => { source.disconnect(); gain.disconnect(); panner.disconnect(); this.shots.delete(shot); };
+    source.start(now);
+    source.stop(now + (go ? 0.65 : 0.25));
+  }
+
   retire(voice) {
     this.voices.delete(voice.id);
     this.retiring.add(voice);
@@ -162,6 +182,7 @@ export class KartAudioMixer {
 export function createKartAudio() {
   let context, mixer, loading, disposed = false, active = false, muted = false;
   let retryAt = 0;
+  let lastStartId, lastStep = 0;
   const controller = new AbortController();
   const unlock = () => {
     if (disposed || document.hidden || performance.now() < retryAt) return;
@@ -191,6 +212,13 @@ export function createKartAudio() {
   window.addEventListener("keydown", keyDown);
   document.addEventListener("visibilitychange", visibility);
   return {
+    startSignal(id, signal) {
+      if (id !== lastStartId) { lastStartId = id; lastStep = 0; }
+      if (signal.step !== lastStep) {
+        if (signal.step > 0 && signal.label && !muted && !document.hidden) mixer?.countdown(signal.step === 4);
+        lastStep = signal.step;
+      }
+    },
     update(cars, currentId, camera, dt, enabled) {
       active = enabled;
       if (!document.hidden) mixer?.update(cars, currentId, camera, dt, enabled && !muted);

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import RaceStartOverlay from "./RaceStartOverlay.jsx";
 import BackgroundMusic from "./BackgroundMusic.jsx";
 import { QRCodeSVG } from "qrcode.react";
 import { useGameSocket } from "./use-game-socket.js";
@@ -218,7 +219,8 @@ function Host({ roomId }) {
   const localNow = useNow(
     room?.phase === "prompting"
     || room?.phase === "tuning"
-    || room?.phase === "countdown",
+    || room?.phase === "countdown"
+    || room?.phase === "racing",
   );
   const now = estimatedServerNow(room, localNow);
   const remaining = room?.phase === "tuning"
@@ -415,8 +417,8 @@ function Host({ roomId }) {
         </div>
       </section>
 
-      {room?.phase === "countdown" ? (
-        <div className="countdown-overlay">{formatSeconds(room.startsAt - now)}</div>
+      {(room?.phase === "countdown" || room?.phase === "racing") ? (
+        <RaceStartOverlay startsAt={room.startsAt} now={now} />
       ) : null}
       <Leaderboard room={room} />
     </main>
@@ -479,7 +481,8 @@ function Player({ roomId }) {
   const localNow = useNow(
     room?.phase === "prompting"
     || room?.phase === "tuning"
-    || room?.phase === "countdown",
+    || room?.phase === "countdown"
+    || room?.phase === "racing",
   );
   const now = estimatedServerNow(room, localNow);
   const me = room?.players.find((player) => player.id === playerId);
@@ -699,8 +702,8 @@ function Player({ roomId }) {
         </section>
       ) : null}
 
-      {room?.phase === "countdown" ? (
-        <div className="countdown-overlay">{formatSeconds(room.startsAt - now)}</div>
+      {(room?.phase === "countdown" || room?.phase === "racing") ? (
+        <RaceStartOverlay startsAt={room.startsAt} now={now} />
       ) : null}
 
       {canDrive ? (

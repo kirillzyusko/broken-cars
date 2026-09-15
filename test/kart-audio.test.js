@@ -33,6 +33,22 @@ function setup() {
 }
 const car = { id: "driver", speed: 0, throttle: 0, position: { x: 0, z: 0 }, defectIds: [] };
 
+test("countdown beeps and GO overlap engine audio and release their own nodes", () => {
+  const { mixer, sources, oscillators } = setup();
+  mixer.update([car], car.id, {}, 1 / 60);
+  mixer.countdown(false);
+  mixer.countdown(true);
+  assert.equal(mixer.shots.size, 2);
+  assert.ok(sources.every((s) => s.starts === 1 && !s.stops));
+  assert.equal(oscillators[0].frequency.value, 440);
+  assert.equal(oscillators[1].frequency.value, 880);
+  oscillators[0].onended();
+  assert.equal(mixer.shots.size, 1);
+  assert.ok(oscillators[0].disconnected);
+  mixer.dispose();
+  assert.ok(oscillators.every((o) => o.disconnected));
+});
+
 test("engine revs rise under load, coast down smoothly, and respect a missing engine", () => {
   let mix = engineMix(null, car, 1 / 60);
   assert.ok(mix.idle > 0 && mix.high === 0);

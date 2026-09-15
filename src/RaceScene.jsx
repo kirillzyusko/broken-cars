@@ -17,7 +17,7 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
   const recentImpact = focusCar?.lastCollision && raceElapsedMs - focusCar.lastCollision.atMs < 900
     ? focusCar.lastCollision : null;
   const audioActive = room.phase === "racing" || room.phase === "countdown";
-  latestRef.current = { cars, obstacles, currentPlayerId, cameraMode, onReady, audioActive };
+  latestRef.current = { cars, obstacles, currentPlayerId, cameraMode, onReady, audioActive, room };
 
   useEffect(() => { setCameraMode(view); }, [view]);
   useEffect(() => {
@@ -36,6 +36,10 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
       if (!loaded) return;
       scene = loaded;
       sceneRef.current = scene;
+      const snapshot = latestRef.current.room;
+      scene.startClock = latestRef.current.audioActive ? { startsAt: snapshot.startsAt, serverNow: snapshot.serverNow,
+        receivedAt: performance.now() - Math.max(0, Date.now() - (snapshot.receivedAt ?? Date.now())),
+        id: `${snapshot.id}:${snapshot.roundNumber}:${snapshot.startsAt}` } : null;
       scene.audioActive = latestRef.current.audioActive;
       scene.currentPlayerId = latestRef.current.currentPlayerId;
       scene.view = latestRef.current.cameraMode;
@@ -57,13 +61,18 @@ export default function RaceScene({ room, currentPlayerId = null, view = "specta
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    scene.startClock = audioActive ? {
+      startsAt: room.startsAt, serverNow: room.serverNow,
+      receivedAt: performance.now() - Math.max(0, Date.now() - (room.receivedAt ?? Date.now())),
+      id: `${room.id}:${room.roundNumber}:${room.startsAt}`,
+    } : null;
     scene.audioActive = audioActive;
     syncCars(scene, cars);
     syncObstacles(scene, obstacles);
     scene.currentPlayerId = currentPlayerId;
     if (scene.view !== cameraMode) scene.cameraPlaced = false;
     scene.view = cameraMode;
-  }, [cars, obstacles, currentPlayerId, cameraMode, audioActive]);
+  }, [cars, obstacles, currentPlayerId, cameraMode, audioActive, room]);
 
   return (
     <section className="panel race-world" aria-label="Live 3D race">

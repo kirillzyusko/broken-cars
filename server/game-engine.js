@@ -15,7 +15,7 @@ import { DEFECTS, isGenericRepairRequest } from "./defects.js";
 export { TRACK_LENGTH_METERS };
 export const BUILD_DURATION_MS = 60_000;
 export const TUNING_DURATION_MS = 60_000;
-export const START_COUNTDOWN_MS = 3_000;
+export const START_COUNTDOWN_MS = 5_000;
 export const MAX_RACE_DURATION_MS = 90_000;
 export { STANDARD_MAX_SPEED_MPS } from "../shared/kart-driving.js";
 export const CAR_MASS_KG = 1_000;
@@ -822,6 +822,15 @@ export class GameEngine {
     const changedRooms = [];
 
     for (const room of this.rooms.values()) {
+      if (room.phase === "countdown") {
+        let revsChanged = false;
+        for (const player of room.players.values()) if (player.car) {
+          revsChanged ||= player.car.throttle !== Number(player.controls.accelerate);
+          player.car.throttle = player.controls.accelerate ? 1 : 0;
+          player.car.braking = false;
+        }
+        if (revsChanged && now < room.startsAt) changedRooms.push(room.id);
+      }
       if (room.phase === "countdown" && now >= room.startsAt) {
         room.phase = "racing";
         room.lastTickAt = now;

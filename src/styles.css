@@ -158,20 +158,13 @@ h2 { margin-bottom: 0.6rem; letter-spacing: -0.035em; }
 .defect-card span { color: #c9aaa3; font-size: 0.75rem; line-height: 1.35; }
 .fully-tuned { margin: 0.9rem 0 0; color: var(--acid); font-weight: 800; }
 
-.countdown-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  background: rgba(10, 10, 8, 0.72);
-  color: var(--acid);
-  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  font-size: min(50vw, 20rem);
-  font-weight: 500;
-  backdrop-filter: blur(8px);
-  pointer-events: none;
-}
+/* The grid and gantry stay visible throughout the start sequence. */
+.race-start-overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; color: #ffe065; font-size: clamp(4rem, 15vw, 10rem); font-weight: 1000; font-style: italic; text-shadow: 0 5px 0 #593321, 0 9px 24px #0008; }
+.race-start-overlay span { animation: race-start-pop 350ms ease-out both; }
+.race-start-overlay small { font-size: 1rem; color: white; font-style: normal; }
+.race-start-go { color: #85ff72; }
+@keyframes race-start-pop { from { transform: scale(1.3); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .race-start-overlay span { animation: none; } }
 
 .race-world {
   overflow: hidden;
