@@ -55,7 +55,7 @@ test("wheel rolling follows travel, reverses, and survives the existing Idle ani
   visual.applyDefects(["sideways_wheels"]);
   const sideways = left.getLocalRotation().clone();
   visual.updateMotion(0.2);
-  assert.ok(sideways.equals(left.getLocalRotation()), "sideways tires scrape rather than roll forward");
+  assert.ok(!sideways.equals(left.getLocalRotation()), "sideways tires roll along their new driving direction");
   visual.entity.destroy();
 });
 

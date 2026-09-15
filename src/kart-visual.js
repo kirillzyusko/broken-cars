@@ -92,7 +92,7 @@ export function createKartVisual(assets) {
 
     function placeWheels() {
       for (const wheel of wheels) {
-        spin.setFromAxisAngle(AXLE, sidewaysWheels ? 0 : wheel.angle);
+        spin.setFromAxisAngle(AXLE, wheel.angle);
         rotation.copy(sidewaysWheels ? wheel.sideways : wheel.rest).mul(spin);
         wheel.round.setLocalRotation(rotation);
         wheel.square.setLocalRotation(rotation);
@@ -104,7 +104,7 @@ export function createKartVisual(assets) {
       for (const wheel of wheels) {
         wheel.round.setLocalPosition(wheel.roundPosition);
         wheel.square.setLocalPosition(wheel.squarePosition);
-        if (!sidewaysWheels && (wheel.round.enabled || wheel.square.enabled)) {
+        if (wheel.round.enabled || wheel.square.enabled) {
           wheel.angle = (wheel.angle + travel / wheel.radius * 180 / Math.PI * wheel.direction) % 360;
         }
       }

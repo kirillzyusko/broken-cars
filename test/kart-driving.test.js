@@ -297,3 +297,26 @@ test("acceleration gives a fast low-speed recovery and tapers toward the speed l
   assert.ok(car.speed > STANDARD_MAX_SPEED_MPS * 0.9 && car.speed <= STANDARD_MAX_SPEED_MPS);
   assert.ok(car.speed - earlySpeed < earlySpeed / 2);
 });
+
+test("sideways wheels drive across the chassis, brake, reverse and repair", () => {
+  const car = kart();
+  car.heading = 0;
+  car.defectIds = ["sideways_wheels"];
+  const start = { ...car.worldPosition };
+  run(car, { accelerate: true }, 3);
+  assert.ok(car.worldPosition.x > start.x + 10);
+  assert.ok(Math.abs(car.worldPosition.z - start.z) < 1e-6);
+  assert.equal(car.heading, 0);
+  run(car, { brake: true }, 3);
+  assert.ok(car.velocityX < -1, "holding brake reverses sideways");
+  run(car, { stop: true }, 2);
+  assert.equal(car.speed, 0);
+  run(car, { accelerate: true, right: true }, 1);
+  assert.ok(car.heading > 0, "steering still turns the chassis");
+  run(car, { stop: true }, 2);
+  car.defectIds = [];
+  const heading = car.heading * Math.PI / 180;
+  run(car, { accelerate: true }, 2);
+  assert.ok(car.velocityX * Math.sin(heading) - car.velocityZ * Math.cos(heading) > 1);
+  assert.ok(Math.abs(car.velocityX * Math.cos(heading) + car.velocityZ * Math.sin(heading)) < 1e-6);
+});

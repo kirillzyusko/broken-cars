@@ -39,7 +39,9 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
     car.acceleratorStuck = true;
   }
   const wantsAcceleration = acceleratePressed || car.acceleratorStuck;
-  const radians = car.heading * Math.PI / 180;
+  // Drive along the tire direction while keeping the chassis heading intact.
+  const wheelHeadingOffset = defects.has("sideways_wheels") ? 90 : 0;
+  const radians = (car.heading + wheelHeadingOffset) * Math.PI / 180;
   const forwardX = Math.sin(radians), forwardZ = -Math.cos(radians);
   let forwardSpeed = car.velocityX * forwardX + car.velocityZ * forwardZ;
   let lateralSpeed = car.velocityX * -forwardZ + car.velocityZ * forwardX;
@@ -80,12 +82,6 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
     rollingDrag += 1.8 + Math.abs(Math.sin(raceElapsedMs / 115)) * 2.2;
   }
   if (defects.has("loose_wheel")) maxSpeed *= 0.86;
-  if (defects.has("sideways_wheels")) {
-    engineAcceleration *= 0.34;
-    maxSpeed = Math.min(maxSpeed, 12);
-    tireGrip = 0.8;
-    rollingDrag += 4.5;
-  }
   if (defects.has("bad_engine_power")) {
     if (car.enginePowerIssue === "weak") {
       engineAcceleration *= 0.32;
@@ -154,7 +150,7 @@ export function stepKart(car, controls, dt, raceElapsedMs = 0, world = null) {
   if (defects.has("loose_wheel")) car.heading += Math.sin(raceElapsedMs / 180) * car.speed * 0.15 * dt;
   if (defects.has("no_grip")) lateralSpeed += steering * car.speed * 0.3 * dt;
   if (defects.has("bad_engine_power") && car.enginePowerIssue === "overpowered" && wantsAcceleration) car.heading += Math.sin(raceElapsedMs / 95) * car.speed * 0.25 * dt;
-  const angle = car.heading * Math.PI / 180;
+  const angle = (car.heading + wheelHeadingOffset) * Math.PI / 180;
   car.velocityX = Math.sin(angle) * forwardSpeed + Math.cos(angle) * lateralSpeed;
   car.velocityZ = -Math.cos(angle) * forwardSpeed + Math.sin(angle) * lateralSpeed;
   car.speed = Math.hypot(car.velocityX, car.velocityZ);
