@@ -66,6 +66,7 @@ test("round-wheel requirements are hard constraints", () => {
   for (const prompt of [
     "A rally car whose wheels must be round",
     "Машина с круглыми колёсами",
+    "У машины колёса должны быть круглыми",
   ]) {
     const avoided = defectTestUtils.explicitPromptAvoidances(prompt);
     assert.equal(avoided.has("square_wheels"), true);
@@ -90,13 +91,17 @@ test("local assignments return four defects in an allowed composition", async ()
   }
 });
 
-test("selections accept only the supported severity compositions", () => {
+test("selections prefer the standard compositions but allow safe substitutions", () => {
   assert.equal(
-    defectTestUtils.validSelection(["no_wheels", "no_engine", "no_grip", "no_brakes"]),
+    defectTestUtils.validSelection(["no_engine", "sideways_wheels", "no_steering", "no_brakes"]),
     false,
   );
   assert.equal(
     defectTestUtils.validSelection(["no_engine", "no_steering", "no_grip", "no_brakes"]),
+    true,
+  );
+  assert.equal(
+    defectTestUtils.validSelection(["no_grip", "no_brakes", "no_seatbelt", "loose_wheel"]),
     true,
   );
 });
@@ -144,6 +149,30 @@ test("all three severity compositions can be selected", () => {
       ])),
     );
   }
+});
+
+test("prompt exclusions can replace a preferred category without creating contradictions", () => {
+  const avoidedDefectIds = [
+    "no_wheels",
+    "no_engine",
+    "sideways_wheels",
+    "no_steering",
+    "one_way_steering",
+    "backwards_engine",
+  ];
+  const assignments = defectTestUtils.diversifyAssignments(
+    [{ id: "driver", prompt: "Kart" }],
+    new Map([["driver", { defectIds: [], avoidedDefectIds }]]),
+  );
+  const selected = assignments.driver;
+
+  assert.equal(selected.length, 4);
+  assert.equal(selected.some((id) => avoidedDefectIds.includes(id)), false);
+  assert.equal(defectTestUtils.validSelection(selected), true);
+  assert.equal(
+    selected.filter((id) => DEFECTS.find((defect) => defect.id === id).severity === "critical").length,
+    1,
+  );
 });
 
 test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats", async () => {
@@ -197,14 +226,14 @@ test("OpenAI selection uses gpt-5-nano, honors constraints, and removes repeats"
     new Set(modelInput.defects.map((defect) => defect.severity)),
     new Set(DEFECT_SEVERITIES),
   );
-  assert.deepEqual(modelInput.allowedSeverityCompositions, DEFECT_COMPOSITIONS);
+  assert.deepEqual(modelInput.preferredSeverityCompositions, DEFECT_COMPOSITIONS);
   assert.deepEqual(
     new Set(modelInput.cars[0].serverDetectedAvoidances),
     new Set(["no_wheels", "square_wheels"]),
   );
 });
 
-test("OpenAI assignments with an unsupported severity composition are rejected", async () => {
+test("OpenAI assignments with more than one fatal defect are rejected", async () => {
   await assert.rejects(
     defectTestUtils.selectWithOpenAI(
       [{ id: "driver", prompt: "Kart" }],
@@ -217,7 +246,7 @@ test("OpenAI assignments with an unsupported severity composition are rejected",
             output_text: JSON.stringify({
               assignments: [{
                 playerId: "driver",
-                defectIds: ["no_wheels", "no_engine", "no_grip", "no_brakes"],
+                defectIds: ["no_engine", "sideways_wheels", "no_steering", "no_brakes"],
                 avoidedDefectIds: [],
               }],
             }),
