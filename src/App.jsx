@@ -8,6 +8,7 @@ import { PlayerScreen } from "./player/PlayerScreen.jsx";
 const KartDriveTest = lazy(() => import("./KartDriveTest.jsx"));
 const MapGraphicsTest = lazy(() => import("./MapGraphicsTest.jsx"));
 const MapPreview = lazy(() => import("./MapPreview.jsx"));
+const LoadingScreenTest = lazy(() => import("./LoadingScreenTest.jsx"));
 
 function routeFromPath() {
   const [, page, roomId] = window.location.pathname.split("/");
@@ -19,6 +20,7 @@ function routeFromPath() {
 
 export default function App() {
   const { pathname } = window.location;
+  if (pathname === "/test/loading") return <Suspense fallback={null}><LoadingScreenTest /></Suspense>;
   if (pathname === "/map/drive") return <Suspense fallback={null}><KartDriveTest /></Suspense>;
   if (pathname === "/map/graphics") return <Suspense fallback={null}><MapGraphicsTest /></Suspense>;
   if (pathname === "/map") return <Suspense fallback={null}><MapPreview /></Suspense>;

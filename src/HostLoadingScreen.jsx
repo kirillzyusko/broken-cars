@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import LoadingIntro from "./LoadingIntro.jsx";
+import { IntroAudioContext } from "./intro-audio-context.js";
 
 import "./host-loading-screen.css";
 
@@ -34,15 +36,9 @@ export default function HostLoadingScreen({ children }) {
   }, [visible, reducedMotion, finish]);
 
   return <>
-    <div className="host-loading-content" inert={visible} aria-hidden={visible || undefined}>{children}</div>
-    {visible && <div className="host-loading-screen" role="dialog" aria-modal="true" aria-label="Game intro">
-      {reducedMotion
-        ? <img src="/video/host-loading-poster.jpg" alt="" />
-        : <video src="/video/host-loading.mp4" poster="/video/host-loading-poster.jpg"
-            autoPlay muted playsInline preload="auto" disablePictureInPicture
-            onEnded={finish} onError={finish} aria-hidden="true" />}
-      <span className="host-loading-screen__label" role="status">Starting game…</span>
-      <button className="host-loading-screen__skip" type="button" onClick={finish} autoFocus>Skip intro</button>
-    </div>}
+    <IntroAudioContext.Provider value={visible}>
+      <div className="host-loading-content" inert={visible} aria-hidden={visible || undefined}>{children}</div>
+    </IntroAudioContext.Provider>
+    {visible && <LoadingIntro reducedMotion={reducedMotion} onFinish={finish} />}
   </>;
 }
